@@ -41,14 +41,19 @@
         .form-input, .form-select { @apply block w-full px-3 py-2 bg-white border border-gray-300 rounded-lg shadow-sm placeholder-gray-400 text-gray-900 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm; }
         .form-checkbox { @apply w-4 h-4 bg-gray-100 border-gray-300 rounded text-blue-600 focus:ring-blue-500 disabled:opacity-50; }
         .vertex { cursor: move; }
-        .vertex-label { pointer-events: none; user-select: none; font-size: 12px; fill: var(--text-primary); }
+        .vertex-label { pointer-events: none; user-select: none; font-size: 12px; fill: var(--text-primary); font-family: var(--font-family); }
         .edge, .edge-handle { cursor: pointer; }
-        .edge-path { fill: none; }
+        .edge-path {
+            fill: none;
+            stroke: var(--text-secondary);
+            color: var(--text-secondary); /* Sets color for marker */
+            stroke-width: 1.5px;
+        }
         .edge-interaction-area { stroke-width: 12; stroke: transparent; fill: none; }
         .edge-handle { fill: var(--primary-color); opacity: 0.7; transition: opacity 0.2s; }
         .edge-handle:hover { opacity: 1; }
-        .vertex.selected .vertex-shape, .edge.selected .edge-path { stroke: var(--warning-color) !important; stroke-width: 3.5px !important; }
-        .vertex.hovered .vertex-shape, .edge.hovered .edge-path { stroke: var(--primary-color) !important; stroke-width: 2.5px !important; }
+        .vertex.selected .vertex-shape, .edge.selected .edge-path { stroke: var(--warning-color) !important; stroke-width: 3.5px !important; color: var(--warning-color) !important; }
+        .vertex.hovered .vertex-shape, .edge.hovered .edge-path { stroke: var(--primary-color) !important; stroke-width: 2.5px !important; color: var(--primary-color) !important; }
         .vertex.edge-start .vertex-shape { animation: pulse 1.5s infinite; }
         .marquee-rect { fill: rgba(59, 130, 246, 0.2); stroke: rgba(59, 130, 246, 0.7); stroke-width: 1px; stroke-dasharray: 3, 3; }
         .edge-angle-text {
@@ -68,6 +73,23 @@
 </head>
 <body class="bg-slate-50 text-slate-700">
 
+    <!-- Instructions Popup -->
+    <div id="instructions-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-lg shadow-xl p-6 w-full max-w-lg relative">
+            <button id="close-instructions-btn" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+            </button>
+            <h3 class="text-lg font-bold mb-4">Instructions</h3>
+            <div class="text-sm space-y-2 text-gray-700">
+                <p><strong>To add a vertex:</strong> Turn on <strong>Add Vertex</strong>, then click anywhere on the canvas.</p>
+                <p><strong>To add an edge:</strong> Turn on <strong>Add Edge</strong>, then click the source vertex followed by the target vertex.</p>
+                <p><strong>To select items:</strong> Click an item. Hold <strong>Shift</strong> while clicking to select multiple items. Click and drag on the background to select items in an area.</p>
+                <p><strong>To align vertices:</strong> Select two or more vertices, click the <strong>Align Vertices</strong> dropdown, and choose an alignment.</p>
+                <p><strong>Keyboard Shortcuts:</strong> Use <strong>Ctrl/Cmd + C, X, V</strong> for copy, cut, and paste. Use <strong>Delete/Backspace</strong> to delete selected items.</p>
+            </div>
+        </div>
+    </div>
+
     <!-- Graph to LaTeX Tool Content -->
     <div id="content-graph-tool" class="flex flex-col h-full">
         <!-- Toolbar -->
@@ -85,15 +107,11 @@
             </div>
             <button id="undo-btn" class="btn btn-secondary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 3a5 5 0 1 1-4.546 2.914.5.5 0 0 0-.908-.417A6 6 0 1 0 8 2v1z"/><path d="M8 4.466V.534a.25.25 0 0 0-.41-.192L5.23 2.408a.25.25 0 0 0 0 .384l2.36 2.066A.25.25 0 0 0 8 4.466z"/></svg>Undo</button>
             <button id="redo-btn" class="btn btn-secondary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 2.066a.25.25 0 0 1 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z"/></svg>Redo</button>
+            <div class="w-px h-6 bg-gray-400 mx-2"></div>
+            <button id="download-svg-btn" class="btn btn-secondary">Download SVG</button>
+            <button id="download-png-btn" class="btn btn-secondary">Download PNG</button>
             <div class="flex-grow"></div>
             <button id="show-instructions-btn" class="btn btn-secondary">Show Instructions</button>
-            <div id="instructions-container" class="hidden w-full bg-blue-50 border border-blue-200 text-blue-800 p-3 rounded-lg mt-2 text-sm space-y-1">
-                <p><strong>To add a vertex:</strong> Turn on <strong>Add Vertex</strong>, then click anywhere on the canvas.</p>
-                <p><strong>To add an edge:</strong> Turn on <strong>Add Edge</strong>, then click the source vertex followed by the target vertex.</p>
-                <p><strong>To select items:</strong> Click an item. Hold <strong>Shift</strong> while clicking to select multiple items. Click and drag on the background to select items in an area.</p>
-                <p><strong>To align vertices:</strong> Select two or more vertices, click the <strong>Align Vertices</strong> dropdown, and choose an alignment.</p>
-                <p><strong>Keyboard Shortcuts:</strong> Use <strong>Ctrl/Cmd + C, X, V</strong> for copy, cut, and paste. Use <strong>Delete/Backspace</strong> to delete selected items.</p>
-            </div>
         </div>
         <div class="flex flex-grow overflow-hidden">
             <div class="flex-grow relative bg-white" id="canvas-wrapper"><svg id="canvas" class="w-full h-full"></svg></div>
@@ -158,7 +176,8 @@
             const undoBtn = document.getElementById('undo-btn');
             const redoBtn = document.getElementById('redo-btn');
             const showInstructionsBtn = document.getElementById('show-instructions-btn');
-            const instructionsContainer = document.getElementById('instructions-container');
+            const instructionsModal = document.getElementById('instructions-modal');
+            const closeInstructionsBtn = document.getElementById('close-instructions-btn');
             const copyBtn = document.getElementById('copy-button');
             const resetBendBtn = document.getElementById('reset-bend-btn');
             const centerCheck = document.getElementById('center-drawing-check');
@@ -166,6 +185,8 @@
             const captionInput = document.getElementById('caption-input');
             const applyToAllVerticesBtn = document.getElementById('apply-to-all-vertices-btn');
             const applyToAllEdgesBtn = document.getElementById('apply-to-all-edges-btn');
+            const downloadSvgBtn = document.getElementById('download-svg-btn');
+            const downloadPngBtn = document.getElementById('download-png-btn');
             
             const modeButtons = { 'addVertex': addVertexBtn, 'addEdge': addEdgeBtn, 'delete': deleteModeBtn };
 
@@ -187,15 +208,278 @@
             function addVertex(x, y) { const newVertex = { id: state.nextVertexId++, x, y, label: '', radius: 10, fillType: 'solid', fillColor: '#628dc6', borderWidth: 1.5, borderColor: '#6b7280', type: 'vertex' }; const n = state.vertices.length; if (state.autoLabelType === 'numeric') newVertex.label = (n + 1).toString(); else if (state.autoLabelType === 'alpha') newVertex.label = String.fromCharCode(97 + n); state.vertices.push(newVertex); saveState(); selectElement(newVertex); render(); }
             function addEdge(sourceId, targetId) { if (sourceId === targetId || state.edges.some(e => (e.sourceId === sourceId && e.targetId === targetId) || (e.sourceId === targetId && e.targetId === sourceId))) return; const newEdge = { id: state.nextEdgeId++, sourceId, targetId, type: 'edge', edgeType: 'undirected', lineStyle: 'solid', controlPoint: { x: 0, y: 0, isDefault: true } }; state.edges.push(newEdge); saveState(); selectElement(newEdge); }
             function deleteSelectedElements() { if (state.selectedElements.length === 0) return; const idsToDelete = new Set(state.selectedElements.map(el => el.id)); const typesToDelete = new Set(state.selectedElements.map(el => el.type)); if (typesToDelete.has('vertex')) { state.vertices = state.vertices.filter(v => !idsToDelete.has(v.id)); state.edges = state.edges.filter(e => !idsToDelete.has(e.sourceId) && !idsToDelete.has(e.targetId)); } if (typesToDelete.has('edge')) { state.edges = state.edges.filter(e => !idsToDelete.has(e.id)); } selectElement(null); saveState(); render(); }
-            function alignSelectedVertices(alignmentType) { const selectedVertices = state.selectedElements.filter(el => el.type === 'vertex'); if (selectedVertices.length < 2) return; let avgX = 0, avgY = 0; selectedVertices.forEach(v => { avgX += v.x; avgY += v.y; }); avgX /= selectedVertices.length; avgY /= selectedVertices.length; const selectedIds = new Set(selectedVertices.map(v => v.id)); state.vertices.forEach(v => { if (selectedIds.has(v.id)) { if (alignmentType === 'horizontal') v.x = avgX; if (alignmentType === 'vertical') v.y = avgY; } }); state.edges.forEach(edge => { if (edge.controlPoint.isDefault) { const source = state.vertices.find(v => v.id === edge.sourceId), target = state.vertices.find(v => v.id === edge.targetId); if (source && target) { edge.controlPoint.x = (source.x + target.x) / 2; edge.controlPoint.y = (source.y + target.y) / 2; } } }); saveState(); render(); }
+            function alignSelectedVertices(alignmentType) { const selectedVertices = state.selectedElements.filter(el => el.type === 'vertex'); if (selectedVertices.length < 2) return; let avgX = 0, avgY = 0; selectedVertices.forEach(v => { avgX += v.x; avgY += v.y; }); avgX /= selectedVertices.length; avgY /= selectedVertices.length; const selectedIds = new Set(selectedVertices.map(v => v.id)); state.vertices.forEach(v => { if (selectedIds.has(v.id)) { if (alignmentType === 'horizontal') v.y = avgY; if (alignmentType === 'vertical') v.x = avgX; } }); state.edges.forEach(edge => { if (edge.controlPoint.isDefault) { const source = state.vertices.find(v => v.id === edge.sourceId), target = state.vertices.find(v => v.id === edge.targetId); if (source && target) { edge.controlPoint.x = (source.x + target.x) / 2; edge.controlPoint.y = (source.y + target.y) / 2; } } }); saveState(); render(); }
             function copySelection() { if (state.selectedElements.length === 0) return; const selectedVertices = state.selectedElements.filter(el => el.type === 'vertex'); const selectedEdges = state.selectedElements.filter(el => el.type === 'edge'); clipboard.vertices = JSON.parse(JSON.stringify(selectedVertices)); clipboard.edges = JSON.parse(JSON.stringify(selectedEdges)); }
             function pasteFromClipboard() { if (clipboard.vertices.length === 0 && clipboard.edges.length === 0) return; const oldToNewIdMap = new Map(), newSelection = []; let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity; if (clipboard.vertices.length > 0) { clipboard.vertices.forEach(v => { minX = Math.min(minX, v.x); minY = Math.min(minY, v.y); maxX = Math.max(maxX, v.x); maxY = Math.max(maxY, v.y); }); } else { minX = lastMouseCoords.x; maxX = lastMouseCoords.x; minY = lastMouseCoords.y; maxY = lastMouseCoords.y; } const selectionCenterX = (minX + maxX) / 2, selectionCenterY = (minY + maxY) / 2; const offsetX = lastMouseCoords.x - selectionCenterX, offsetY = lastMouseCoords.y - selectionCenterY; clipboard.vertices.forEach(v => { const oldId = v.id; const newVertex = JSON.parse(JSON.stringify(v)); newVertex.id = state.nextVertexId++; newVertex.x += offsetX; newVertex.y += offsetY; state.vertices.push(newVertex); oldToNewIdMap.set(oldId, newVertex.id); newSelection.push(newVertex); }); clipboard.edges.forEach(e => { const newEdge = JSON.parse(JSON.stringify(e)); newEdge.id = state.nextEdgeId++; newEdge.sourceId = oldToNewIdMap.get(e.sourceId); newEdge.targetId = oldToNewIdMap.get(e.targetId); if (newEdge.sourceId !== undefined && newEdge.targetId !== undefined) { if (!e.controlPoint.isDefault) { newEdge.controlPoint.x += offsetX; newEdge.controlPoint.y += offsetY; } state.edges.push(newEdge); newSelection.push(newEdge); } }); state.selectedElements = newSelection; updatePropertiesPanel(); saveState(); render(); }
             function setMode(newMode, fromLoad = false) { if (!fromLoad && state.mode === newMode) newMode = 'select'; state.mode = newMode; Object.values(modeButtons).forEach(btn => btn.classList.remove('active')); if (modeButtons[state.mode]) modeButtons[state.mode].classList.add('active'); svg.style.cursor = { 'addVertex': 'crosshair', 'addEdge': 'pointer', 'delete': 'pointer' }[state.mode] || 'default'; state.edgeStartVertex = null; render(); }
             function selectElement(element, isMultiSelect = false) { if (isMultiSelect) { const index = state.selectedElements.findIndex(el => el.id === element.id && el.type === element.type); if (index > -1) state.selectedElements.splice(index, 1); else state.selectedElements.push(element); } else { state.selectedElements = element ? [element] : []; } updatePropertiesPanel(); updateToolbarButtons(); }
             function updatePropertiesPanel() { const selectedCount = state.selectedElements.length; propertiesPanel.classList.toggle('hidden', selectedCount === 0); noSelectionPanel.classList.toggle('hidden', selectedCount > 0); multiSelectInfo.classList.toggle('hidden', selectedCount <= 1); vertexPropsPanel.classList.add('hidden'); edgePropsPanel.classList.add('hidden'); if (selectedCount === 1) { const selected = state.selectedElements[0]; if (selected.type === 'vertex') { vertexPropsPanel.classList.remove('hidden'); const v = selected; vertexLabelInput.value = v.label; vertexSizeSelect.value = v.radius; vertexFillTypeSelect.value = v.fillType; vertexColorInput.value = v.fillColor; vertexBorderSelect.value = v.borderWidth; vertexColorGroup.style.display = v.fillType === 'solid' ? 'block' : 'none'; } else if (selected.type === 'edge') { edgePropsPanel.classList.remove('hidden'); const e = selected; edgeTypeSelect.value = e.edgeType; edgeStyleSelect.value = e.lineStyle; } } }
-            function render(guideCoords = null, draggedHandleInfo = null) { svg.innerHTML = ''; const defs = document.createElementNS(NS, 'defs'); const marker = document.createElementNS(NS, 'marker'); marker.setAttribute('id', 'arrowhead'); marker.setAttribute('viewBox', '-2 -5 10 10'); marker.setAttribute('refX', '8'); marker.setAttribute('refY', '0'); marker.setAttribute('markerWidth', '8'); marker.setAttribute('markerHeight', '8'); marker.setAttribute('orient', 'auto'); const path = document.createElementNS(NS, 'path'); path.setAttribute('d', 'M0,-4L8,0L0,4'); path.setAttribute('fill', '#6b7280'); marker.appendChild(path); defs.appendChild(marker); svg.appendChild(defs); const isSelected = (el) => state.selectedElements.some(sel => sel.id === el.id && sel.type === el.type); state.edges.forEach(edge => { const source = state.vertices.find(v => v.id === edge.sourceId), target = state.vertices.find(v => v.id === edge.targetId); if (!source || !target) return; const g = document.createElementNS(NS, 'g'); g.classList.add('edge'); if (isSelected(edge)) g.classList.add('selected'); if (edge.controlPoint.isDefault) { edge.controlPoint.x = (source.x + target.x) / 2; edge.controlPoint.y = (source.y + target.y) / 2; } const pathEl = document.createElementNS(NS, 'path'); pathEl.classList.add('edge-path'); pathEl.setAttribute('d', `M ${source.x} ${source.y} Q ${edge.controlPoint.x} ${edge.controlPoint.y} ${target.x} ${target.y}`); pathEl.style.stroke = '#6b7280'; pathEl.style.strokeWidth = '1.5'; if (edge.lineStyle === 'dashed') pathEl.style.strokeDasharray = '5,5'; if (edge.lineStyle === 'dotted') pathEl.style.strokeDasharray = '1.5,4'; if (edge.edgeType === 'directed') pathEl.setAttribute('marker-end', 'url(#arrowhead)'); const interactionArea = pathEl.cloneNode(); interactionArea.classList.add('edge-interaction-area'); g.appendChild(pathEl); g.appendChild(interactionArea); interactionArea.addEventListener('mousedown', (e) => { e.stopPropagation(); if (state.mode === 'delete') deleteSelectedElements(); else { selectElement(edge, e.shiftKey); render(); } }); interactionArea.addEventListener('mouseenter', () => { g.classList.add('hovered'); if (state.mode === 'delete') g.classList.add('delete-mode-hover'); }); interactionArea.addEventListener('mouseleave', () => g.classList.remove('hovered', 'delete-mode-hover')); const handle = document.createElementNS(NS, 'circle'); handle.classList.add('edge-handle'); handle.setAttribute('cx', edge.controlPoint.x); handle.setAttribute('cy', edge.controlPoint.y); handle.setAttribute('r', '6'); handle.addEventListener('mousedown', (e) => { e.stopPropagation(); state.draggedElement = { type: 'handle', edgeId: edge.id }; }); const angleText = document.createElementNS(NS, 'text'); angleText.setAttribute('id', `edge-angle-${edge.id}`); angleText.classList.add('edge-angle-text'); if (draggedHandleInfo && draggedHandleInfo.edgeId === edge.id) { angleText.setAttribute('x', draggedHandleInfo.x); angleText.setAttribute('y', draggedHandleInfo.y); angleText.textContent = draggedHandleInfo.angle; angleText.setAttribute('visibility', 'visible'); } else { angleText.setAttribute('visibility', 'hidden'); } g.appendChild(handle); g.appendChild(angleText); svg.appendChild(g); }); state.vertices.forEach(vertex => { const g = document.createElementNS(NS, 'g'); g.classList.add('vertex'); g.setAttribute('transform', `translate(${vertex.x}, ${vertex.y})`); if (isSelected(vertex)) g.classList.add('selected'); if (state.edgeStartVertex && state.edgeStartVertex.id === vertex.id) g.classList.add('edge-start'); const circle = document.createElementNS(NS, 'circle'); circle.classList.add('vertex-shape'); circle.setAttribute('r', vertex.radius); circle.style.fill = vertex.fillType === 'solid' ? vertex.fillColor : 'none'; circle.style.stroke = vertex.borderColor; circle.style.strokeWidth = vertex.borderWidth; const label = document.createElementNS(NS, 'text'); label.classList.add('vertex-label'); label.textContent = vertex.label; label.setAttribute('text-anchor', 'middle'); label.setAttribute('dy', '.3em'); g.appendChild(circle); g.appendChild(label); g.addEventListener('mousedown', (e) => { e.stopPropagation(); if (state.mode === 'addEdge') { if (!state.edgeStartVertex) { state.edgeStartVertex = vertex; render(); } else { addEdge(state.edgeStartVertex.id, vertex.id); render(); } } else if (state.mode === 'delete') { selectElement(vertex, e.shiftKey); deleteSelectedElements(); } else { state.draggedElement = { type: 'vertex', id: vertex.id }; if (!isSelected(vertex)) { selectElement(vertex, e.shiftKey); } render(); } }); g.addEventListener('mouseenter', () => { g.classList.add('hovered'); if (state.mode === 'delete') g.classList.add('delete-mode-hover'); }); g.addEventListener('mouseleave', () => g.classList.remove('hovered', 'delete-mode-hover')); svg.appendChild(g); }); if (guideCoords) { const { width, height } = svg.getBoundingClientRect(); const hLine = document.createElementNS(NS, 'line'); hLine.setAttribute('x1', 0); hLine.setAttribute('y1', guideCoords.y); hLine.setAttribute('x2', width); hLine.setAttribute('y2', guideCoords.y); hLine.classList.add('alignment-guide'); const vLine = document.createElementNS(NS, 'line'); vLine.setAttribute('x1', guideCoords.x); vLine.setAttribute('y1', 0); vLine.setAttribute('x2', guideCoords.x); vLine.setAttribute('y2', height); vLine.classList.add('alignment-guide'); svg.appendChild(hLine); svg.appendChild(vLine); } if (marqueeRect) { svg.appendChild(marqueeRect); } generateTikZ(); }
-            function generateTikZ() { const doCenter = centerCheck.checked, doCaption = captionCheck.checked, captionText = captionInput.value; const hexToName = {}; let colorIndex = 0; state.vertices.forEach(v => { if (!hexToName[v.borderColor]) hexToName[v.borderColor] = `mycolor${colorIndex++}`; if (v.fillType === 'solid' && !hexToName[v.fillColor]) hexToName[v.fillColor] = `mycolor${colorIndex++}`; }); let code = ''; for (const hex in hexToName) code += `\\definecolor{${hexToName[hex]}}{HTML}{${hex.substring(1)}}\n`; if (doCenter || doCaption) code += `\\begin{figure}[h!]\n${doCenter ? '  \\centering\n' : ''}`; code += '  \\begin{tikzpicture}[every node/.style={draw, circle}]\n'; const canvasHeight = svg.getBoundingClientRect().height; const tikzBorder = { 1: 'thin', 1.5: '', 2.5: 'thick' }; const sizeMap = { 6: '0.4cm', 10: '0.6cm', 14: '0.8cm' }; code += '    % Vertices\n'; state.vertices.forEach(v => { const x = (v.x / TIKZ_SCALE_FACTOR).toFixed(2), y = ((canvasHeight - v.y) / TIKZ_SCALE_FACTOR).toFixed(2); let styles = [`draw=${hexToName[v.borderColor]}`]; if (v.fillType === 'solid') styles.push(`fill=${hexToName[v.fillColor]}`); else styles.push('fill=none'); styles.push(`minimum size=${sizeMap[v.radius]}`); if (tikzBorder[v.borderWidth]) styles.push(tikzBorder[v.borderWidth]); code += `    \\node[${styles.join(', ')}] (v${v.id}) at (${x}, ${y}) {${v.label}};\n`; }); code += '\n    % Edges\n'; state.edges.forEach(e => { let styles = []; if (e.edgeType === 'directed') styles.push('-{Stealth}'); if (e.lineStyle === 'dashed') styles.push('dashed'); if (e.lineStyle === 'dotted') styles.push('dotted'); const styleString = styles.length > 0 ? `[${styles.join(', ')}]` : ''; const source = state.vertices.find(v => v.id === e.sourceId), target = state.vertices.find(v => v.id === e.targetId); if (!source || !target) return; const isBent = Math.sqrt((e.controlPoint.x - (source.x + target.x)/2)**2 + (e.controlPoint.y - (source.y + target.y)/2)**2) > 2; if (isBent) { const cx = (e.controlPoint.x / TIKZ_SCALE_FACTOR).toFixed(2), cy = ((canvasHeight - e.controlPoint.y) / TIKZ_SCALE_FACTOR).toFixed(2); code += `    \\draw${styleString} (v${e.sourceId}) .. controls (${cx},${cy}) .. (v${e.targetId});\n`; } else code += `    \\draw${styleString} (v${e.sourceId}) -- (v${e.targetId});\n`; }); code += '  \\end{tikzpicture}'; if (doCenter || doCaption) { if (doCaption && captionText) code += `\n  \\caption{${captionText}}\n`; code += '\\end{figure}'; } tikzCodeArea.value = code; }
+            
+            function render(guideCoords = null, draggedHandleInfo = null) {
+                svg.innerHTML = '';
+                const defs = document.createElementNS(NS, 'defs');
 
+                // Default (unselected) arrowhead - smaller
+                const markerDefault = document.createElementNS(NS, 'marker');
+                markerDefault.setAttribute('id', 'arrowhead-default');
+                markerDefault.setAttribute('viewBox', '-2 -5 10 10');
+                markerDefault.setAttribute('refX', '8');
+                markerDefault.setAttribute('refY', '0');
+                markerDefault.setAttribute('markerWidth', '4');
+                markerDefault.setAttribute('markerHeight', '4');
+                markerDefault.setAttribute('orient', 'auto');
+                const pathDefault = document.createElementNS(NS, 'path');
+                pathDefault.setAttribute('d', 'M0,-4L8,0L0,4');
+                pathDefault.setAttribute('fill', 'currentColor');
+                markerDefault.appendChild(pathDefault);
+                defs.appendChild(markerDefault);
+
+                // Selected arrowhead - larger
+                const markerSelected = document.createElementNS(NS, 'marker');
+                markerSelected.setAttribute('id', 'arrowhead-selected');
+                markerSelected.setAttribute('viewBox', '-2 -5 10 10');
+                markerSelected.setAttribute('refX', '8');
+                markerSelected.setAttribute('refY', '0');
+                markerSelected.setAttribute('markerWidth', '6');
+                markerSelected.setAttribute('markerHeight', '6');
+                markerSelected.setAttribute('orient', 'auto');
+                const pathSelected = document.createElementNS(NS, 'path');
+                pathSelected.setAttribute('d', 'M0,-4L8,0L0,4');
+                pathSelected.setAttribute('fill', 'currentColor');
+                markerSelected.appendChild(pathSelected);
+                defs.appendChild(markerSelected);
+
+                svg.appendChild(defs);
+
+                const isSelected = (el) => state.selectedElements.some(sel => sel.id === el.id && sel.type === el.type);
+                
+                state.edges.forEach(edge => {
+                    const source = state.vertices.find(v => v.id === edge.sourceId), target = state.vertices.find(v => v.id === edge.targetId);
+                    if (!source || !target) return;
+                    const g = document.createElementNS(NS, 'g');
+                    g.classList.add('edge');
+                    if (isSelected(edge)) g.classList.add('selected');
+                    if (edge.controlPoint.isDefault) {
+                        edge.controlPoint.x = (source.x + target.x) / 2;
+                        edge.controlPoint.y = (source.y + target.y) / 2;
+                    }
+                    const pathEl = document.createElementNS(NS, 'path');
+                    pathEl.classList.add('edge-path');
+                    pathEl.setAttribute('d', `M ${source.x} ${source.y} Q ${edge.controlPoint.x} ${edge.controlPoint.y} ${target.x} ${target.y}`);
+                    
+                    if (edge.lineStyle === 'dashed') pathEl.style.strokeDasharray = '5,5';
+                    if (edge.lineStyle === 'dotted') pathEl.style.strokeDasharray = '1.5,4';
+                    
+                    // Apply the correct marker based on selection state
+                    if (edge.edgeType === 'directed') {
+                        if (isSelected(edge)) {
+                            pathEl.setAttribute('marker-end', 'url(#arrowhead-selected)');
+                        } else {
+                            pathEl.setAttribute('marker-end', 'url(#arrowhead-default)');
+                        }
+                    }
+                    
+                    const interactionArea = pathEl.cloneNode();
+                    interactionArea.classList.add('edge-interaction-area');
+                    g.appendChild(pathEl);
+                    g.appendChild(interactionArea);
+                    
+                    interactionArea.addEventListener('mousedown', (e) => { e.stopPropagation(); if (state.mode === 'delete') deleteSelectedElements(); else { selectElement(edge, e.shiftKey); render(); } });
+                    interactionArea.addEventListener('mouseenter', () => { g.classList.add('hovered'); if (state.mode === 'delete') g.classList.add('delete-mode-hover'); });
+                    interactionArea.addEventListener('mouseleave', () => g.classList.remove('hovered', 'delete-mode-hover'));
+                    
+                    const handle = document.createElementNS(NS, 'circle');
+                    handle.classList.add('edge-handle');
+                    handle.setAttribute('cx', edge.controlPoint.x);
+                    handle.setAttribute('cy', edge.controlPoint.y);
+                    handle.setAttribute('r', '6');
+                    handle.addEventListener('mousedown', (e) => { e.stopPropagation(); state.draggedElement = { type: 'handle', edgeId: edge.id }; });
+                    
+                    const angleText = document.createElementNS(NS, 'text');
+                    angleText.setAttribute('id', `edge-angle-${edge.id}`);
+                    angleText.classList.add('edge-angle-text');
+                    if (draggedHandleInfo && draggedHandleInfo.edgeId === edge.id) {
+                        angleText.setAttribute('x', draggedHandleInfo.x);
+                        angleText.setAttribute('y', draggedHandleInfo.y);
+                        angleText.textContent = draggedHandleInfo.angle;
+                        angleText.setAttribute('visibility', 'visible');
+                    } else {
+                        angleText.setAttribute('visibility', 'hidden');
+                    }
+                    g.appendChild(handle);
+                    g.appendChild(angleText);
+                    svg.appendChild(g);
+                });
+
+                state.vertices.forEach(vertex => {
+                    const g = document.createElementNS(NS, 'g');
+                    g.classList.add('vertex');
+                    g.setAttribute('transform', `translate(${vertex.x}, ${vertex.y})`);
+                    if (isSelected(vertex)) g.classList.add('selected');
+                    if (state.edgeStartVertex && state.edgeStartVertex.id === vertex.id) g.classList.add('edge-start');
+                    
+                    const circle = document.createElementNS(NS, 'circle');
+                    circle.classList.add('vertex-shape');
+                    circle.setAttribute('r', vertex.radius);
+                    circle.style.fill = vertex.fillType === 'solid' ? vertex.fillColor : 'none';
+                    circle.style.stroke = vertex.borderColor;
+                    circle.style.strokeWidth = vertex.borderWidth;
+                    
+                    const label = document.createElementNS(NS, 'text');
+                    label.classList.add('vertex-label');
+                    label.textContent = vertex.label;
+                    label.setAttribute('text-anchor', 'middle');
+                    label.setAttribute('dy', '.3em');
+                    
+                    g.appendChild(circle);
+                    g.appendChild(label);
+                    
+                    g.addEventListener('mousedown', (e) => { e.stopPropagation(); if (state.mode === 'addEdge') { if (!state.edgeStartVertex) { state.edgeStartVertex = vertex; render(); } else { addEdge(state.edgeStartVertex.id, vertex.id); render(); } } else if (state.mode === 'delete') { selectElement(vertex, e.shiftKey); deleteSelectedElements(); } else { state.draggedElement = { type: 'vertex', id: vertex.id }; if (!isSelected(vertex)) { selectElement(vertex, e.shiftKey); } render(); } });
+                    g.addEventListener('mouseenter', () => { g.classList.add('hovered'); if (state.mode === 'delete') g.classList.add('delete-mode-hover'); });
+                    g.addEventListener('mouseleave', () => g.classList.remove('hovered', 'delete-mode-hover'));
+                    svg.appendChild(g);
+                });
+
+                if (guideCoords) { const { width, height } = svg.getBoundingClientRect(); const hLine = document.createElementNS(NS, 'line'); hLine.setAttribute('x1', 0); hLine.setAttribute('y1', guideCoords.y); hLine.setAttribute('x2', width); hLine.setAttribute('y2', guideCoords.y); hLine.classList.add('alignment-guide'); const vLine = document.createElementNS(NS, 'line'); vLine.setAttribute('x1', guideCoords.x); vLine.setAttribute('y1', 0); vLine.setAttribute('x2', guideCoords.x); vLine.setAttribute('y2', height); vLine.classList.add('alignment-guide'); svg.appendChild(hLine); svg.appendChild(vLine); }
+                if (marqueeRect) { svg.appendChild(marqueeRect); }
+                generateTikZ();
+            }
+
+            function generateTikZ() { const doCenter = centerCheck.checked, doCaption = captionCheck.checked, captionText = captionInput.value; const hexToName = {}; let colorIndex = 0; state.vertices.forEach(v => { if (!hexToName[v.borderColor]) hexToName[v.borderColor] = `mycolor${colorIndex++}`; if (v.fillType === 'solid' && !hexToName[v.fillColor]) hexToName[v.fillColor] = `mycolor${colorIndex++}`; }); let code = ''; for (const hex in hexToName) code += `\\definecolor{${hexToName[hex]}}{HTML}{${hex.substring(1)}}\n`; if (doCenter || doCaption) code += `\\begin{figure}[h!]\n${doCenter ? '  \\centering\n' : ''}`; code += '  \\begin{tikzpicture}[every node/.style={draw, circle}]\n'; const canvasHeight = svg.getBoundingClientRect().height; const tikzBorder = { 1: 'thin', 1.5: '', 2.5: 'thick' }; const sizeMap = { 6: '0.4cm', 10: '0.6cm', 14: '0.8cm' }; code += '    % Vertices\n'; state.vertices.forEach(v => { const x = (v.x / TIKZ_SCALE_FACTOR).toFixed(2), y = ((canvasHeight - v.y) / TIKZ_SCALE_FACTOR).toFixed(2); let styles = [`draw=${hexToName[v.borderColor]}`]; if (v.fillType === 'solid') styles.push(`fill=${hexToName[v.fillColor]}`); else styles.push('fill=none'); styles.push(`minimum size=${sizeMap[v.radius]}`); if (tikzBorder[v.borderWidth]) styles.push(tikzBorder[v.borderWidth]); code += `    \\node[${styles.join(', ')}] (v${v.id}) at (${x}, ${y}) {${v.label}};\n`; }); code += '\n    % Edges\n'; state.edges.forEach(e => { let styles = []; if (e.edgeType === 'directed') styles.push('-{stealth}'); if (e.lineStyle === 'dashed') styles.push('dashed'); if (e.lineStyle === 'dotted') styles.push('dotted'); const styleString = styles.length > 0 ? `[${styles.join(', ')}]` : ''; const source = state.vertices.find(v => v.id === e.sourceId), target = state.vertices.find(v => v.id === e.targetId); if (!source || !target) return; const isBent = Math.sqrt((e.controlPoint.x - (source.x + target.x)/2)**2 + (e.controlPoint.y - (source.y + target.y)/2)**2) > 2; if (isBent) { const cx = (e.controlPoint.x / TIKZ_SCALE_FACTOR).toFixed(2), cy = ((canvasHeight - e.controlPoint.y) / TIKZ_SCALE_FACTOR).toFixed(2); code += `    \\draw${styleString} (v${e.sourceId}) .. controls (${cx},${cy}) .. (v${e.targetId});\n`; } else code += `    \\draw${styleString} (v${e.sourceId}) -- (v${e.targetId});\n`; }); code += '  \\end{tikzpicture}'; if (doCenter || doCaption) { if (doCaption && captionText) code += `\n  \\caption{${captionText}}\n`; code += '\\end{figure}'; } tikzCodeArea.value = code; }
+
+            // --- START: SVG/PNG EXPORT FIX ---
+            /**
+             * Creates an SVG data string with embedded styles for reliable exporting.
+             * @returns {string} The SVG data as a string.
+             */
+            function getSVGForExport() {
+                // Clone the main SVG to avoid modifying it
+                const svgClone = svg.cloneNode(true);
+
+                // Remove interactive-only elements that aren't needed in the export
+                svgClone.querySelectorAll('.edge-handle, .edge-interaction-area, .marquee-rect, .alignment-guide').forEach(el => el.remove());
+
+                // Define the CSS styles to be embedded.
+                // CSS variables are replaced with their actual values for compatibility.
+                const cssStyles = `
+                    .vertex-label {
+                        font-family: 'Inter', sans-serif;
+                        font-size: 12px;
+                        fill: #1d2129; /* --text-primary */
+                        pointer-events: none;
+                        user-select: none;
+                    }
+                    .edge-path {
+                        fill: none;
+                        stroke: #6b7280; /* --text-secondary */
+                        color: #6b7280; /* for arrowhead */
+                        stroke-width: 1.5px;
+                    }
+                    .edge.selected .edge-path {
+                        stroke: #f59e0b !important; /* --warning-color */
+                        stroke-width: 3.5px !important;
+                        color: #f59e0b !important; /* for arrowhead */
+                    }
+                `;
+
+                const styleEl = document.createElementNS(NS, 'style');
+                styleEl.textContent = cssStyles;
+
+                const defs = svgClone.querySelector('defs');
+                if (defs) {
+                    defs.insertBefore(styleEl, defs.firstChild);
+                } else {
+                    const newDefs = document.createElementNS(NS, 'defs');
+                    newDefs.appendChild(styleEl);
+                    svgClone.insertBefore(newDefs, svgClone.firstChild);
+                }
+
+                return new XMLSerializer().serializeToString(svgClone);
+            }
+
+            function downloadSVG() {
+                const svgData = getSVGForExport();
+                const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'graph.svg';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+
+            function downloadPNG() {
+                if (state.vertices.length === 0) {
+                    // You can add a more user-friendly message here if you want
+                    console.warn("Cannot export an empty graph.");
+                    return;
+                }
+                
+                // Calculate the bounding box of the graph content to crop the image
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                state.vertices.forEach(v => {
+                    minX = Math.min(minX, v.x - v.radius);
+                    minY = Math.min(minY, v.y - v.radius);
+                    maxX = Math.max(maxX, v.x + v.radius);
+                    maxY = Math.max(maxY, v.y + v.radius);
+                });
+
+                const padding = 20;
+                minX -= padding;
+                minY -= padding;
+                maxX += padding;
+                maxY += padding;
+                
+                const contentWidth = maxX - minX;
+                const contentHeight = maxY - minY;
+
+                // Create a modified SVG string with a viewBox that frames the content
+                const originalSVGString = getSVGForExport();
+                const svgDoc = new DOMParser().parseFromString(originalSVGString, "image/svg+xml");
+                const svgElement = svgDoc.documentElement;
+                svgElement.setAttribute('width', contentWidth);
+                svgElement.setAttribute('height', contentHeight);
+                svgElement.setAttribute('viewBox', `${minX} ${minY} ${contentWidth} ${contentHeight}`);
+                const finalSVGData = new XMLSerializer().serializeToString(svgElement);
+
+                const canvasEl = document.createElement('canvas');
+                const scale = 2; // Render at 2x resolution for better quality
+                canvasEl.width = contentWidth * scale;
+                canvasEl.height = contentHeight * scale;
+                
+                const ctx = canvasEl.getContext('2d');
+                ctx.scale(scale, scale);
+                
+                // Fill background with white to prevent transparency issues
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, canvasEl.width, canvasEl.height);
+
+                const img = new Image();
+                const blob = new Blob([finalSVGData], { type: 'image/svg+xml;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                
+                img.onload = function () {
+                    ctx.drawImage(img, 0, 0);
+                    URL.revokeObjectURL(url);
+                    
+                    const a = document.createElement('a');
+                    a.href = canvasEl.toDataURL('image/png');
+                    a.download = 'graph.png';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                };
+                img.onerror = function(err) {
+                    console.error("Failed to load SVG for PNG conversion:", err);
+                    URL.revokeObjectURL(url);
+                }
+                img.src = url;
+            }
+            // --- END: SVG/PNG EXPORT FIX ---
+
+            // Event Listeners
             addVertexBtn.addEventListener('click', () => setMode('addVertex'));
             addEdgeBtn.addEventListener('click', () => setMode('addEdge'));
             deleteModeBtn.addEventListener('click', () => setMode('delete'));
@@ -206,7 +490,9 @@
             autoLabelTypeSelect.addEventListener('change', (e) => { state.autoLabelType = e.target.value; if (state.selectedElements.some(el => el.type === 'vertex')) { state.vertices.forEach((vertex, i) => { if (state.autoLabelType === 'numeric') { vertex.label = (i + 1).toString(); } else if (state.autoLabelType === 'alpha') { vertex.label = String.fromCharCode(97 + i); } else { vertex.label = ''; } }); saveState(); render(); } });
             undoBtn.addEventListener('click', undo);
             redoBtn.addEventListener('click', redo);
-            showInstructionsBtn.addEventListener('click', () => instructionsContainer.classList.toggle('hidden'));
+            showInstructionsBtn.addEventListener('click', () => instructionsModal.classList.remove('hidden'));
+            closeInstructionsBtn.addEventListener('click', () => instructionsModal.classList.add('hidden'));
+            instructionsModal.addEventListener('click', (e) => { if (e.target === instructionsModal) instructionsModal.classList.add('hidden'); });
             copyBtn.addEventListener('click', () => { tikzCodeArea.select(); document.execCommand('copy'); copyBtn.textContent = 'Copied!'; setTimeout(() => { copyBtn.textContent = 'Copy Code'; }, 2000); });
             resetBendBtn.addEventListener('click', () => { if (state.selectedElements.length === 1 && state.selectedElements[0].type === 'edge') { state.selectedElements[0].controlPoint.isDefault = true; saveState(); render(); } });
             applyToAllVerticesBtn.addEventListener('click', () => { if (state.selectedElements.length === 1 && state.selectedElements[0].type === 'vertex') { const style = state.selectedElements[0]; state.vertices.forEach(v => { v.radius = style.radius; v.fillType = style.fillType; v.fillColor = style.fillColor; v.borderWidth = style.borderWidth; v.borderColor = style.borderColor; }); saveState(); render(); } });
@@ -214,13 +500,17 @@
             centerCheck.addEventListener('change', generateTikZ);
             captionCheck.addEventListener('change', () => { captionInput.disabled = !captionCheck.checked; generateTikZ(); });
             captionInput.addEventListener('input', generateTikZ);
+            downloadSvgBtn.addEventListener('click', downloadSVG);
+            downloadPngBtn.addEventListener('click', downloadPNG);
             svg.addEventListener('click', (e) => { if (e.target === svg) { if (state.mode === 'addVertex') addVertex(getSVGCoords(e).x, getSVGCoords(e).y); else { state.edgeStartVertex = null; selectElement(null); setMode('select'); render(); } } });
             svg.addEventListener('mousedown', (e) => { if (e.target === svg) { isMarqueeSelecting = true; marqueeStartPoint = getSVGCoords(e); marqueeRect = document.createElementNS(NS, 'rect'); marqueeRect.classList.add('marquee-rect'); marqueeRect.setAttribute('x', marqueeStartPoint.x); marqueeRect.setAttribute('y', marqueeStartPoint.y); marqueeRect.setAttribute('width', 0); marqueeRect.setAttribute('height', 0); svg.appendChild(marqueeRect); } });
             window.addEventListener('mousemove', (e) => { const coords = getSVGCoords(e); lastMouseCoords = coords; if (isMarqueeSelecting && marqueeRect) { const x = Math.min(coords.x, marqueeStartPoint.x), y = Math.min(coords.y, marqueeStartPoint.y), width = Math.abs(coords.x - marqueeStartPoint.x), height = Math.abs(coords.y - marqueeStartPoint.y); marqueeRect.setAttribute('x', x); marqueeRect.setAttribute('y', y); marqueeRect.setAttribute('width', width); marqueeRect.setAttribute('height', height); return; } if (!state.draggedElement) return; let guideCoords = null; let draggedHandleInfo = null; if (state.draggedElement.type === 'vertex') { const draggedVertex = state.vertices.find(v => v.id === state.draggedElement.id); if (!draggedVertex) return; const dx = coords.x - draggedVertex.x, dy = coords.y - draggedVertex.y; const selectedVertexIds = new Set(state.selectedElements.filter(el => el.type === 'vertex').map(v => v.id)); state.vertices.forEach(v => { if (selectedVertexIds.has(v.id)) { v.x += dx; v.y += dy; } }); guideCoords = { x: draggedVertex.x, y: draggedVertex.y }; state.edges.forEach(edge => { if (edge.controlPoint.isDefault) { const source = state.vertices.find(v => v.id === edge.sourceId), target = state.vertices.find(v => v.id === edge.targetId); if (source && target) { edge.controlPoint.x = (source.x + target.x) / 2; edge.controlPoint.y = (source.y + target.y) / 2; } } }); } else if (state.draggedElement.type === 'handle') { const edge = state.edges.find(e => e.id === state.draggedElement.edgeId); if (edge) { edge.controlPoint.x = coords.x; edge.controlPoint.y = coords.y; edge.controlPoint.isDefault = false; const source = state.vertices.find(v => v.id === edge.sourceId); const target = state.vertices.find(v => v.id === edge.targetId); if(source && target){ const v1 = { x: source.x - coords.x, y: source.y - coords.y }; const v2 = { x: target.x - coords.x, y: target.y - coords.y }; const dotProduct = v1.x * v2.x + v1.y * v2.y; const mag1 = Math.sqrt(v1.x * v1.x + v1.y * v1.y); const mag2 = Math.sqrt(v2.x * v2.x + v2.y * v2.y); let angleDeg = 180 - (Math.acos(dotProduct / (mag1 * mag2)) * (180 / Math.PI)); draggedHandleInfo = { edgeId: edge.id, angle: `${angleDeg.toFixed(1)}°`, x: coords.x, y: coords.y - 10 }; } } } render(guideCoords, draggedHandleInfo); });
             window.addEventListener('mouseup', (e) => { if (isMarqueeSelecting && marqueeRect) { const x = parseFloat(marqueeRect.getAttribute('x')), y = parseFloat(marqueeRect.getAttribute('y')), width = parseFloat(marqueeRect.getAttribute('width')), height = parseFloat(marqueeRect.getAttribute('height')); const selectedVertices = state.vertices.filter(v => v.x >= x && v.x <= x + width && v.y >= y && v.y <= y + height); const selectedVertexIds = new Set(selectedVertices.map(v => v.id)); const selectedEdges = state.edges.filter(e => selectedVertexIds.has(e.sourceId) && selectedVertexIds.has(e.targetId)); const newSelection = [...selectedVertices, ...selectedEdges]; if (e.shiftKey) { newSelection.forEach(item => { if (!state.selectedElements.some(sel => sel.type === item.type && sel.id === item.id)) { state.selectedElements.push(item); } }); } else { state.selectedElements = newSelection; } marqueeRect.remove(); marqueeRect = null; isMarqueeSelecting = false; updatePropertiesPanel(); updateToolbarButtons(); render(); } if (state.draggedElement) { saveState(); state.draggedElement = null; render(); } });
             window.addEventListener('keydown', (e) => { if (document.activeElement.tagName === 'INPUT' || document.activeElement.tagName === 'TEXTAREA') return; const isCtrlOrMeta = e.ctrlKey || e.metaKey; if (e.key === 'Delete' || e.key === 'Backspace') deleteSelectedElements(); else if (e.key === 'Escape') { setMode('select'); selectElement(null); render(); } else if (e.key === 'e' && !isCtrlOrMeta) { e.preventDefault(); addEdgeBtn.click(); } else if (e.key === 'l' && !isCtrlOrMeta) { e.preventDefault(); const opts = Array.from(autoLabelTypeSelect.options); const curIdx = opts.findIndex(opt => opt.value === state.autoLabelType); autoLabelTypeSelect.value = opts[(curIdx + 1) % opts.length].value; autoLabelTypeSelect.dispatchEvent(new Event('change')); } else if (isCtrlOrMeta && e.key.toLowerCase() === 'z') { e.preventDefault(); undo(); } else if (isCtrlOrMeta && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); } else if (isCtrlOrMeta && e.key.toLowerCase() === 'c') { e.preventDefault(); copySelection(); } else if (isCtrlOrMeta && e.key.toLowerCase() === 'x') { e.preventDefault(); copySelection(); deleteSelectedElements(); } else if (isCtrlOrMeta && e.key.toLowerCase() === 'v') { e.preventDefault(); pasteFromClipboard(); } });
+            
             const inputs = [vertexLabelInput, vertexSizeSelect, vertexFillTypeSelect, vertexColorInput, vertexBorderSelect, edgeTypeSelect, edgeStyleSelect];
             inputs.forEach(input => { input.addEventListener('change', (e) => { if (state.selectedElements.length !== 1) return; const el = state.selectedElements[0]; switch (e.target.id) { case 'vertex-label': el.label = e.target.value; break; case 'vertex-size': el.radius = parseInt(e.target.value); break; case 'vertex-fill-type': el.fillType = e.target.value; vertexColorGroup.style.display = el.fillType === 'solid' ? 'block' : 'none'; break; case 'vertex-color': el.fillColor = e.target.value; break; case 'vertex-border': el.borderWidth = parseFloat(e.target.value); break; case 'edge-type': el.edgeType = e.target.value; break; case 'edge-style': el.lineStyle = e.target.value; break; } saveState(); render(); }); });
+
             saveState();
             render();
         });
