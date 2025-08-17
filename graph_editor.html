@@ -206,7 +206,7 @@
             function updateToolbarButtons() { undoBtn.disabled = historyPointer <= 0; redoBtn.disabled = historyPointer >= history.length - 1; const selectedVertices = state.selectedElements.filter(el => el.type === 'vertex'); alignVerticesBtn.disabled = selectedVertices.length < 2; }
             function getSVGCoords(evt) { const pt = svg.createSVGPoint(); pt.x = evt.clientX; pt.y = evt.clientY; const CTM = svg.getScreenCTM(); if (!CTM) return { x: 0, y: 0 }; return pt.matrixTransform(CTM.inverse()); }
             function addVertex(x, y) { const newVertex = { id: state.nextVertexId++, x, y, label: '', radius: 10, fillType: 'solid', fillColor: '#628dc6', borderWidth: 1.5, borderColor: '#6b7280', type: 'vertex' }; const n = state.vertices.length; if (state.autoLabelType === 'numeric') newVertex.label = (n + 1).toString(); else if (state.autoLabelType === 'alpha') newVertex.label = String.fromCharCode(97 + n); state.vertices.push(newVertex); saveState(); selectElement(newVertex); render(); }
-            function addEdge(sourceId, targetId) { if (sourceId === targetId || state.edges.some(e => (e.sourceId === sourceId && e.targetId === targetId) || (e.sourceId === targetId && e.targetId === sourceId))) return; const newEdge = { id: state.nextEdgeId++, sourceId, targetId, type: 'edge', edgeType: 'undirected', lineStyle: 'solid', controlPoint: { x: 0, y: 0, isDefault: true } }; state.edges.push(newEdge); saveState(); selectElement(newEdge); }
+            function addEdge(sourceId, targetId) { if (sourceId === targetId || state.edges.some(e => (e.sourceId === sourceId && e.targetId === targetId) || (e.sourceId === targetId && e.targetId === sourceId))) return; const newEdge = { id: state.nextEdgeId++, sourceId, targetId, type: 'edge', edgeType: 'undirected', lineStyle: 'solid', controlPoint: { x: 0, y: 0, isDefault: true } }; state.edges.push(newEdge); saveState(); /* selectElement(newEdge); */ }
             function deleteSelectedElements() { if (state.selectedElements.length === 0) return; const idsToDelete = new Set(state.selectedElements.map(el => el.id)); const typesToDelete = new Set(state.selectedElements.map(el => el.type)); if (typesToDelete.has('vertex')) { state.vertices = state.vertices.filter(v => !idsToDelete.has(v.id)); state.edges = state.edges.filter(e => !idsToDelete.has(e.sourceId) && !idsToDelete.has(e.targetId)); } if (typesToDelete.has('edge')) { state.edges = state.edges.filter(e => !idsToDelete.has(e.id)); } selectElement(null); saveState(); render(); }
             function alignSelectedVertices(alignmentType) { const selectedVertices = state.selectedElements.filter(el => el.type === 'vertex'); if (selectedVertices.length < 2) return; let avgX = 0, avgY = 0; selectedVertices.forEach(v => { avgX += v.x; avgY += v.y; }); avgX /= selectedVertices.length; avgY /= selectedVertices.length; const selectedIds = new Set(selectedVertices.map(v => v.id)); state.vertices.forEach(v => { if (selectedIds.has(v.id)) { if (alignmentType === 'horizontal') v.y = avgY; if (alignmentType === 'vertical') v.x = avgX; } }); state.edges.forEach(edge => { if (edge.controlPoint.isDefault) { const source = state.vertices.find(v => v.id === edge.sourceId), target = state.vertices.find(v => v.id === edge.targetId); if (source && target) { edge.controlPoint.x = (source.x + target.x) / 2; edge.controlPoint.y = (source.y + target.y) / 2; } } }); saveState(); render(); }
             function copySelection() { if (state.selectedElements.length === 0) return; const selectedVertices = state.selectedElements.filter(el => el.type === 'vertex'); const selectedEdges = state.selectedElements.filter(el => el.type === 'edge'); clipboard.vertices = JSON.parse(JSON.stringify(selectedVertices)); clipboard.edges = JSON.parse(JSON.stringify(selectedEdges)); }
@@ -222,14 +222,14 @@
                 // Default (unselected) arrowhead - smaller
                 const markerDefault = document.createElementNS(NS, 'marker');
                 markerDefault.setAttribute('id', 'arrowhead-default');
-                markerDefault.setAttribute('viewBox', '-2 -5 10 10');
-                markerDefault.setAttribute('refX', '8');
+                markerDefault.setAttribute('viewBox', '-1 -3 6 6'); // Adjusted viewBox
+                markerDefault.setAttribute('refX', '4'); // Adjusted refX
                 markerDefault.setAttribute('refY', '0');
-                markerDefault.setAttribute('markerWidth', '4');
-                markerDefault.setAttribute('markerHeight', '4');
+                markerDefault.setAttribute('markerWidth', '3'); // Halved size
+                markerDefault.setAttribute('markerHeight', '3'); // Halved size
                 markerDefault.setAttribute('orient', 'auto');
                 const pathDefault = document.createElementNS(NS, 'path');
-                pathDefault.setAttribute('d', 'M0,-4L8,0L0,4');
+                pathDefault.setAttribute('d', 'M0,-2L4,0L0,2'); // Adjusted path
                 pathDefault.setAttribute('fill', 'currentColor');
                 markerDefault.appendChild(pathDefault);
                 defs.appendChild(markerDefault);
@@ -334,7 +334,28 @@
                     g.appendChild(circle);
                     g.appendChild(label);
                     
-                    g.addEventListener('mousedown', (e) => { e.stopPropagation(); if (state.mode === 'addEdge') { if (!state.edgeStartVertex) { state.edgeStartVertex = vertex; render(); } else { addEdge(state.edgeStartVertex.id, vertex.id); render(); } } else if (state.mode === 'delete') { selectElement(vertex, e.shiftKey); deleteSelectedElements(); } else { state.draggedElement = { type: 'vertex', id: vertex.id }; if (!isSelected(vertex)) { selectElement(vertex, e.shiftKey); } render(); } });
+                    g.addEventListener('mousedown', (e) => {
+                        e.stopPropagation();
+                        if (state.mode === 'addEdge') {
+                            if (!state.edgeStartVertex) {
+                                state.edgeStartVertex = vertex;
+                                render();
+                            } else {
+                                addEdge(state.edgeStartVertex.id, vertex.id);
+                                state.edgeStartVertex = null; // Reset to allow adding another edge immediately
+                                render();
+                            }
+                        } else if (state.mode === 'delete') {
+                            selectElement(vertex, e.shiftKey);
+                            deleteSelectedElements();
+                        } else {
+                            state.draggedElement = { type: 'vertex', id: vertex.id };
+                            if (!isSelected(vertex)) {
+                                selectElement(vertex, e.shiftKey);
+                            }
+                            render();
+                        }
+                    });
                     g.addEventListener('mouseenter', () => { g.classList.add('hovered'); if (state.mode === 'delete') g.classList.add('delete-mode-hover'); });
                     g.addEventListener('mouseleave', () => g.classList.remove('hovered', 'delete-mode-hover'));
                     svg.appendChild(g);
