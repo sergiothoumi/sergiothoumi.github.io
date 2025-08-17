@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sergio Thoumi - Research</title>
+    <title>Sergio Thoumi</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -60,19 +60,24 @@
                     <a href="#" id="tab-facts" class="tab-link shrink-0 border-b-2 border-transparent px-1 pb-4 text-base font-medium text-slate-500 hover:border-slate-400 hover:text-slate-800">
                         Facts
                     </a>
-                     <!-- The hyperlink to the tool is now in the announcement box -->
+                    <!-- Link updated to the full URL -->
+                    <a href="https://sergiothoumi.github.io/graph_editor.html" target="_blank" rel="noopener noreferrer" class="tab-link shrink-0 border-b-2 border-transparent px-1 pb-4 text-base font-medium text-slate-500 hover:border-slate-400 hover:text-slate-800">
+                        Graph to LaTeX
+                    </a>
                 </nav>
             </div>
 
+            <!-- The announcement box is now a separate element below the About Me section -->
             <div id="content-about" class="tab-content active">
                 <div class="bg-white p-8 rounded-lg shadow-sm border border-slate-200/60">
                     <h2 class="text-3xl font-bold text-slate-800 mb-5">About Me</h2>
-                    <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded-md mb-6">
-                        <p>Check out the <a href="graph_editor.html" class="text-blue-600 hover:underline font-medium">Graph to LaTeX</a> tool where you can draw a graph and get its corresponding TikZ code. This was initially inspired by the app of Dr. Edouard Bonnet which you can check out <a href="https://perso.ens-lyon.fr/edouard.bonnet/trigraph.html" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline font-medium">here</a>.</p>
-                    </div>
                     <p class="text-slate-700 leading-relaxed text-base">
                         I am a pre-doctoral research assistant who is broadly interested in algorithm design and computational complexity. My current and past work spans graph algorithms, classical complexity theory (i.e., NP-hardness), and parameterized complexity. I am actively seeking a research internship where I can either deepen my expertise in these areas or explore new directions. In particular, I am looking to get into fast graph algorithms, dynamic algorithms, and approximation algorithms. I plan to apply to PhD programs for the Fall 2026 cycle.
                     </p>
+                </div>
+                 <!-- Announcement updated with the new sentence -->
+                <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 rounded-md mt-8">
+                    <p>Check out the <a href="https://sergiothoumi.github.io/graph_editor.html" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline font-medium">Graph to LaTeX</a> tool where you can draw a graph and get its corresponding TikZ code. This was initially inspired by the app of Dr. Edouard Bonnet which you can check out <a href="https://perso.ens-lyon.fr/edouard.bonnet/trigraph.html" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:underline font-medium">here</a>. The tool was entirely written by Google's Gemini 2.5 Pro.</p>
                 </div>
             </div>
 
@@ -155,16 +160,19 @@
             const tabContents = document.querySelectorAll('.tab-content');
 
             tabs.forEach(tab => {
-                tab.addEventListener('click', function(event) {
-                    event.preventDefault();
+                // Only add click listeners to tabs that are meant to switch content
+                if (tab.id) {
+                    tab.addEventListener('click', function(event) {
+                        event.preventDefault();
 
-                    tabs.forEach(t => t.classList.remove('active'));
-                    tabContents.forEach(c => c.classList.remove('active'));
+                        tabs.forEach(t => t.classList.remove('active'));
+                        tabContents.forEach(c => c.classList.remove('active'));
 
-                    const targetContentId = 'content-' + this.id.split('-')[1];
-                    document.getElementById(targetContentId).classList.add('active');
-                    this.classList.add('active');
-                });
+                        const targetContentId = 'content-' + this.id.split('-')[1];
+                        document.getElementById(targetContentId).classList.add('active');
+                        this.classList.add('active');
+                    });
+                }
             });
         });
     </script>
