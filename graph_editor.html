@@ -402,37 +402,132 @@
 
                 let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
                 vertices.forEach(v => {
-                    minX = Math.min(minX, v.x - v.radius);
-                    minY = Math.min(minY, v.y - v.radius);
-                    maxX = Math.max(maxX, v.x + v.radius);
-                    maxY = Math.max(maxY, v.y + v.radius);
+                    const radius = parseFloat(v.radius);
+                    minX = Math.min(minX, v.x - radius);
+                    minY = Math.min(minY, v.y - radius);
+                    maxX = Math.max(maxX, v.x + radius);
+                    maxY = Math.max(maxY, v.y + radius);
                 });
                 return { minX, minY, maxX, maxY };
             }
 
-            function downloadImage(isPng, selectedOnly) {
-                const elementsToExport = selectedOnly ? state.selectedElements : [...state.vertices, ...state.edges];
-                const verticesToConsider = selectedOnly ? elementsToExport.filter(el => el.type === 'vertex') : state.vertices;
+            // --- START: FIXED DOWNLOAD FUNCTIONS ---
 
-                if (verticesToConsider.length === 0) {
+            function getSVGForExport(elements) {
+                const verticesToExport = elements.filter(el => el.type === 'vertex');
+                const edgesToExport = elements.filter(el => el.type === 'edge');
+                const vertexIdsToExport = new Set(verticesToExport.map(v => v.id));
+
+                // This filter is now redundant if the calling function pre-filters, but it's safe to keep.
+                const validEdges = edgesToExport.filter(edge =>
+                    vertexIdsToExport.has(edge.sourceId) && vertexIdsToExport.has(edge.targetId)
+                );
+
+                let svgString = `<svg xmlns="${NS}">`;
+
+                // 1. Add Defs (arrowheads)
+                if (svg.querySelector('defs')) {
+                    svgString += svg.querySelector('defs').outerHTML;
+                }
+
+                // 2. Add Styles (for vertices)
+                const cssStyles = `
+                    .vertex-label { font-family: 'Inter', sans-serif; font-size: 12px; fill: #1d2129; user-select: none; }
+                `;
+                svgString += `<style>${cssStyles}</style>`;
+
+                // 3. Add Edges with inline styles
+                validEdges.forEach(edge => {
+                    const source = state.vertices.find(v => v.id === edge.sourceId);
+                    const target = state.vertices.find(v => v.id === edge.targetId);
+                    if (!source || !target) return;
+
+                    const controlPoint = edge.controlPoint.isDefault ? { x: (source.x + target.x) / 2, y: (source.y + target.y) / 2 } : edge.controlPoint;
+                    
+                    const getBorderPoint = (from, to, vertex) => {
+                        let dx = to.x - from.x; let dy = to.y - from.y;
+                        const len = Math.sqrt(dx * dx + dy * dy);
+                        if (len === 0) return to;
+                        const offset = parseFloat(vertex.radius) + (parseFloat(vertex.borderWidth) / 2);
+                        return { x: to.x - (dx / len) * offset, y: to.y - (dy / len) * offset };
+                    };
+
+                    const finalSource = getBorderPoint(controlPoint, source, source);
+                    const finalTarget = getBorderPoint(controlPoint, target, target);
+                    const pathD = `M ${finalSource.x} ${finalSource.y} Q ${controlPoint.x} ${controlPoint.y} ${finalTarget.x} ${finalTarget.y}`;
+                    
+                    let styles = [
+                        'fill: none',
+                        'stroke: #6b7280', // Default color
+                        'stroke-width: 1.5px' // Default width
+                    ];
+
+                    if (edge.lineStyle === 'dashed') styles.push('stroke-dasharray: 5,5');
+                    if (edge.lineStyle === 'dotted') styles.push('stroke-dasharray: 1.5,4');
+                    
+                    const styleString = `style="${styles.join(';')}"`;
+
+                    let marker = '';
+                    if (edge.edgeType === 'directed') marker = `marker-end="url(#arrowhead-default)" color="#6b7280"`;
+
+                    svgString += `<path d="${pathD}" ${styleString} ${marker} />`;
+                });
+
+                // 4. Add Vertices
+                verticesToExport.forEach(vertex => {
+                    svgString += `<g class="vertex" transform="translate(${vertex.x}, ${vertex.y})">`;
+                    const fill = vertex.fillType === 'solid' ? vertex.fillColor : 'transparent';
+                    svgString += `<circle class="vertex-shape" r="${vertex.radius}" style="fill: ${fill}; stroke: ${vertex.borderColor}; stroke-width: ${vertex.borderWidth};" />`;
+                    svgString += `<text class="vertex-label" text-anchor="middle" dy=".3em">${vertex.label}</text>`;
+                    svgString += `</g>`;
+                });
+
+                svgString += `</svg>`;
+                return svgString;
+            }
+
+            function downloadImage(isPng, selectedOnly) {
+                let elementsToExport;
+                let verticesToConsider;
+
+                if (selectedOnly) {
+                    const selectedVertices = state.selectedElements.filter(el => el.type === 'vertex');
+                    const selectedVertexIds = new Set(selectedVertices.map(v => v.id));
+                    
+                    // Find all edges in the main state that connect two of the selected vertices
+                    const connectingEdges = state.edges.filter(edge => 
+                        selectedVertexIds.has(edge.sourceId) && selectedVertexIds.has(edge.targetId)
+                    );
+
+                    elementsToExport = [...selectedVertices, ...connectingEdges];
+                    verticesToConsider = selectedVertices;
+                } else {
+                    elementsToExport = [...state.vertices, ...state.edges];
+                    verticesToConsider = state.vertices;
+                }
+
+                if (selectedOnly && verticesToConsider.length === 0) {
                     console.warn("Cannot export an empty or edge-only selection.");
                     return;
                 }
 
-                const bbox = getBoundingBox(verticesToConsider);
+                const bbox = verticesToConsider.length > 0 ? getBoundingBox(verticesToConsider) : { minX: 0, minY: 0, maxX: 100, maxY: 100 };
                 const padding = 20;
-                const contentWidth = bbox.maxX - bbox.minX + padding * 2;
-                const contentHeight = bbox.maxY - bbox.minY + padding * 2;
+                const contentWidth = (bbox.maxX - bbox.minX) + padding * 2;
+                const contentHeight = (bbox.maxY - bbox.minY) + padding * 2;
                 
-                const svgData = getSVGForExport(elementsToExport);
-                const finalSVGData = svgData.replace(/<svg[^>]+>/, `<svg width="${contentWidth}" height="${contentHeight}" viewBox="${bbox.minX - padding} ${bbox.minY - padding} ${contentWidth} ${contentHeight}" xmlns="http://www.w3.org/2000/svg">`);
+                const rawSvgData = getSVGForExport(elementsToExport);
+                const finalSVGData = rawSvgData.replace(
+                    /<svg[^>]+>/, 
+                    `<svg width="${contentWidth}" height="${contentHeight}" viewBox="${bbox.minX - padding} ${bbox.minY - padding} ${contentWidth} ${contentHeight}" xmlns="http://www.w3.org/2000/svg">`
+                );
                 
                 const blob = new Blob([finalSVGData], { type: 'image/svg+xml;charset=utf-8' });
                 const url = URL.createObjectURL(blob);
 
                 if (isPng) {
                     const canvasEl = document.createElement('canvas');
-                    const scale = 2;
+                    const scale = 2; // For higher resolution PNG
                     canvasEl.width = contentWidth * scale;
                     canvasEl.height = contentHeight * scale;
                     const ctx = canvasEl.getContext('2d');
@@ -451,6 +546,10 @@
                         a.click();
                         document.body.removeChild(a);
                     };
+                    img.onerror = function() {
+                        console.error("Error loading SVG image for PNG conversion.");
+                        URL.revokeObjectURL(url);
+                    }
                     img.src = url;
                 } else {
                     const a = document.createElement('a');
@@ -463,22 +562,7 @@
                 }
             }
 
-            function getSVGForExport(elements) {
-                // This function should ideally build an SVG string from the provided elements
-                // For simplicity, we'll use the current state but this is where you'd filter.
-                const svgClone = svg.cloneNode(true);
-                svgClone.querySelectorAll('.edge-handle, .edge-interaction-area, .marquee-rect').forEach(el => el.remove());
-                const cssStyles = `
-                    .vertex-label { font-family: 'Inter', sans-serif; font-size: 12px; fill: #1d2129; }
-                    .edge-path { fill: none; stroke: #6b7280; color: #6b7280; stroke-width: 1.5px; }
-                    .edge.selected .edge-path { stroke: #f59e0b !important; stroke-width: 3.5px !important; color: #f59e0b !important; }
-                `;
-                const styleEl = document.createElementNS(NS, 'style');
-                styleEl.textContent = cssStyles;
-                const defs = svgClone.querySelector('defs') || svgClone.insertBefore(document.createElementNS(NS, 'defs'), svgClone.firstChild);
-                defs.insertBefore(styleEl, defs.firstChild);
-                return new XMLSerializer().serializeToString(svgClone);
-            }
+            // --- END: FIXED DOWNLOAD FUNCTIONS ---
 
             function zoomCanvas(direction, mouseX, mouseY) {
                 const { width, height } = svg.getBoundingClientRect();
