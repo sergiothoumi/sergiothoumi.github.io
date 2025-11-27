@@ -799,7 +799,71 @@
                 if (marqueeRect) { svg.appendChild(marqueeRect); }
             }
 
-            function generateTikZ() { const hexToName = {}; let colorIndex = 0; state.vertices.forEach(v => { if (!hexToName[v.borderColor]) hexToName[v.borderColor] = `mycolor${colorIndex++}`; if (v.fillType === 'solid' && !hexToName[v.fillColor]) hexToName[v.fillColor] = `mycolor${colorIndex++}`; }); let code = ''; for (const hex in hexToName) code += `\\definecolor{${hexToName[hex]}}{HTML}{${hex.substring(1)}}\n`; code += '  \\begin{tikzpicture}[every node/.style={draw, circle}]\n'; const canvasHeight = svg.getBoundingClientRect().height; const tikzBorder = { 1: 'thin', 1.5: '', 2.5: 'thick' }; const sizeMap = { 6: '0.4cm', 10: '0.6cm', 14: '0.8cm' }; code += '    % Vertices\n'; state.vertices.forEach(v => { const x = (v.x / TIKZ_SCALE_FACTOR).toFixed(2), y = ((canvasHeight - v.y) / TIKZ_SCALE_FACTOR).toFixed(2); let styles = [`draw=${hexToName[v.borderColor]}`]; if (v.fillType === 'solid') styles.push(`fill=${hexToName[v.fillColor]}`); else styles.push('fill=none'); styles.push(`minimum size=${sizeMap[v.radius]}`); if (tikzBorder[v.borderWidth]) styles.push(tikzBorder[v.borderWidth]); code += `    \\node[${styles.join(', ')}] (v${v.id}) at (${x}, ${y}) {${v.label}};\n`; }); code += '\n    % Edges\n'; state.edges.forEach(e => { let styles = []; if (e.edgeType === 'directed') styles.push('-{stealth}'); if (e.lineStyle === 'dashed') styles.push('dashed'); if (e.lineStyle === 'dotted') styles.push('dotted'); const styleString = styles.length > 0 ? `[${styles.join(', ')}]` : ''; const source = state.vertices.find(v => v.id === e.sourceId), target = state.vertices.find(v => v.id === e.targetId); if (!source || !target) return; const isBent = Math.sqrt((e.controlPoint.x - (source.x + target.x)/2)**2 + (e.controlPoint.y - (source.y + target.y)/2)**2) > 2; if (isBent) { const cx = (e.controlPoint.x / TIKZ_SCALE_FACTOR).toFixed(2), cy = ((canvasHeight - e.controlPoint.y) / TIKZ_SCALE_FACTOR).toFixed(2); code += `    \\draw${styleString} (v${e.sourceId}) .. controls (${cx},${cy}) .. (v${e.targetId});\n`; } else code += `    \\draw${styleString} (v${e.sourceId}) -- (v${e.targetId});\n`; }); code += '  \\end{tikzpicture}'; return code; }
+            function generateTikZ() {
+                const hexToName = {};
+                let colorIndex = 0;
+
+                state.vertices.forEach(v => {
+                    if (!hexToName[v.borderColor]) hexToName[v.borderColor] = `mycolor${colorIndex++}`;
+                    if (v.fillType === 'solid' && !hexToName[v.fillColor]) hexToName[v.fillColor] = `mycolor${colorIndex++}`;
+                });
+
+                let code = '';
+
+                for (const hex in hexToName) {
+                    code += `\\definecolor{${hexToName[hex]}}{HTML}{${hex.substring(1)}}\n`;
+                }
+
+                code += '\\resizebox{\\columnwidth}{!}{%\n';
+                code += '  \\begin{tikzpicture}[every node/.style={draw, circle}]\n';
+
+                const canvasHeight = svg.getBoundingClientRect().height;
+                const tikzBorder = { 1: 'thin', 1.5: '', 2.5: 'thick' };
+                const sizeMap = { 6: '0.4cm', 10: '0.6cm', 14: '0.8cm' };
+
+                code += '    % Vertices\n';
+
+                state.vertices.forEach(v => {
+                    const x = (v.x / TIKZ_SCALE_FACTOR).toFixed(2);
+                    const y = ((canvasHeight - v.y) / TIKZ_SCALE_FACTOR).toFixed(2);
+                    let styles = [`draw=${hexToName[v.borderColor]}`];
+
+                    if (v.fillType === 'solid') styles.push(`fill=${hexToName[v.fillColor]}`);
+                    else styles.push('fill=none');
+
+                    styles.push(`minimum size=${sizeMap[v.radius]}`);
+                    if (tikzBorder[v.borderWidth]) styles.push(tikzBorder[v.borderWidth]);
+
+                    code += `    \\node[${styles.join(', ')}] (v${v.id}) at (${x}, ${y}) {${v.label}};\n`;
+                });
+
+                code += '\n    % Edges\n';
+
+                state.edges.forEach(e => {
+                    let styles = [];
+                    if (e.edgeType === 'directed') styles.push('-{stealth}');
+                    if (e.lineStyle === 'dashed') styles.push('dashed');
+                    if (e.lineStyle === 'dotted') styles.push('dotted');
+
+                    const styleString = styles.length > 0 ? `[${styles.join(', ')}]` : '';
+                    const source = state.vertices.find(v => v.id === e.sourceId);
+                    const target = state.vertices.find(v => v.id === e.targetId);
+                    if (!source || !target) return;
+
+                    const isBent = Math.sqrt((e.controlPoint.x - (source.x + target.x) / 2) ** 2 + (e.controlPoint.y - (source.y + target.y) / 2) ** 2) > 2;
+
+                    if (isBent) {
+                        const cx = (e.controlPoint.x / TIKZ_SCALE_FACTOR).toFixed(2);
+                        const cy = ((canvasHeight - e.controlPoint.y) / TIKZ_SCALE_FACTOR).toFixed(2);
+                        code += `    \\draw${styleString} (v${e.sourceId}) .. controls (${cx},${cy}) .. (v${e.targetId});\n`;
+                    } else {
+                        code += `    \\draw${styleString} (v${e.sourceId}) -- (v${e.targetId});\n`;
+                    }
+                });
+
+                code += '  \\end{tikzpicture}\n}';
+                return code;
+            }
 
             function getVerticesBoundingBox(vertices) {
                 if (!vertices || vertices.length === 0) return null;
