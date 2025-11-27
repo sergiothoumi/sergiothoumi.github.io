@@ -103,6 +103,36 @@
         #canvas:active { cursor: grabbing; }
         @keyframes pulse { 0% { stroke-width: 1.5px; } 50% { stroke-width: 4px; stroke: var(--primary-color); } 100% { stroke-width: 1.5px; } }
 
+        .toast-container {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            z-index: 60;
+        }
+
+        .toast {
+            background: rgba(15, 23, 42, 0.92);
+            color: white;
+            padding: 0.65rem 0.9rem;
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.25);
+            font-size: 0.9rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            opacity: 0;
+            transform: translateY(-4px);
+            animation: toast-in 0.2s forwards ease;
+        }
+
+        @keyframes toast-in {
+            from { opacity: 0; transform: translateY(-4px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
         .panel-card {
             background: rgba(255,255,255,0.92);
             border: 1px solid var(--border-color-light);
@@ -130,6 +160,8 @@
 </head>
 <body class="text-slate-700">
 
+    <div id="toast-container" class="toast-container"></div>
+
     <!-- Instructions Popup -->
     <div id="instructions-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center px-4">
         <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-2xl relative border border-slate-200">
@@ -154,10 +186,6 @@
                 <div class="pill w-fit">
                     <span class="status-dot"></span>
                     <span>Graph to LaTeX Exporter</span>
-                </div>
-                <div>
-                    <h1 class="text-3xl font-semibold text-slate-900">Interactive Graph Editor</h1>
-                    <p class="text-sm text-slate-500">Build graphs visually, fine-tune styling, and export both SVG/PNG and TikZ snippets.</p>
                 </div>
             </div>
             <div class="flex items-center gap-3 flex-wrap">
@@ -185,6 +213,15 @@
                         <div id="align-options-dropdown" class="origin-top-left absolute left-0 mt-2 w-56 rounded-lg shadow-lg bg-white ring-1 ring-black ring-opacity-5 focus:outline-none hidden z-10" role="menu" aria-orientation="vertical" aria-labelledby="align-vertices-btn">
                             <div class="py-1" role="none"><a href="#" id="align-vertical-btn" class="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">Align Vertically</a><a href="#" id="align-horizontal-btn" class="text-gray-700 block px-4 py-2 text-sm hover:bg-gray-100" role="menuitem">Align Horizontally</a></div>
                         </div>
+                    </div>
+                    <div class="flex items-center gap-2 bg-white border border-slate-200 px-2 py-1 rounded-lg">
+                        <input type="number" id="preset-count" min="2" value="5" class="form-input text-sm w-20" aria-label="Number of vertices">
+                        <select id="preset-shape" class="form-select text-sm w-32">
+                            <option value="clique">Clique</option>
+                            <option value="cycle">Cycle</option>
+                            <option value="path">Path</option>
+                        </select>
+                        <button id="generate-preset-btn" class="btn btn-primary text-xs">Generate</button>
                     </div>
                     <div class="flex items-center gap-2 bg-white border border-slate-200 px-2 py-1 rounded-lg">
                         <label for="auto-label-type" class="text-xs font-semibold text-slate-500">Auto labels</label>
@@ -286,6 +323,10 @@
             const undoBtn = document.getElementById('undo-btn');
             const redoBtn = document.getElementById('redo-btn');
             const showInstructionsBtn = document.getElementById('show-instructions-btn');
+            const toastContainer = document.getElementById('toast-container');
+            const presetCountInput = document.getElementById('preset-count');
+            const presetShapeSelect = document.getElementById('preset-shape');
+            const generatePresetBtn = document.getElementById('generate-preset-btn');
             const instructionsModal = document.getElementById('instructions-modal');
             const closeInstructionsBtn = document.getElementById('close-instructions-btn');
             const copyBtn = document.getElementById('copy-button');
@@ -338,6 +379,91 @@
             function alignSelectedVertices(alignmentType) { const selectedVertices = state.selectedElements.filter(el => el.type === 'vertex'); if (selectedVertices.length < 2) return; let avgX = 0, avgY = 0; selectedVertices.forEach(v => { avgX += v.x; avgY += v.y; }); avgX /= selectedVertices.length; avgY /= selectedVertices.length; const selectedIds = new Set(selectedVertices.map(v => v.id)); state.vertices.forEach(v => { if (selectedIds.has(v.id)) { if (alignmentType === 'horizontal') v.y = avgY; if (alignmentType === 'vertical') v.x = avgX; } }); state.edges.forEach(edge => { if (edge.controlPoint.isDefault) { const source = state.vertices.find(v => v.id === edge.sourceId), target = state.vertices.find(v => v.id === edge.targetId); if (source && target) { edge.controlPoint.x = (source.x + target.x) / 2; edge.controlPoint.y = (source.y + target.y) / 2; } } }); saveState(); render(); }
             function copySelection() { if (state.selectedElements.length === 0) return; const selectedVertices = state.selectedElements.filter(el => el.type === 'vertex'); const selectedEdges = state.selectedElements.filter(el => el.type === 'edge'); clipboard.vertices = JSON.parse(JSON.stringify(selectedVertices)); clipboard.edges = JSON.parse(JSON.stringify(selectedEdges)); }
             function pasteFromClipboard() { if (clipboard.vertices.length === 0 && clipboard.edges.length === 0) return; const oldToNewIdMap = new Map(), newSelection = []; let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity; if (clipboard.vertices.length > 0) { clipboard.vertices.forEach(v => { minX = Math.min(minX, v.x); minY = Math.min(minY, v.y); maxX = Math.max(maxX, v.x); maxY = Math.max(maxY, v.y); }); } else { minX = lastMouseCoords.x; maxX = lastMouseCoords.x; minY = lastMouseCoords.y; maxY = lastMouseCoords.y; } const selectionCenterX = (minX + maxX) / 2, selectionCenterY = (minY + maxY) / 2; const offsetX = lastMouseCoords.x - selectionCenterX, offsetY = lastMouseCoords.y - selectionCenterY; clipboard.vertices.forEach(v => { const oldId = v.id; const newVertex = JSON.parse(JSON.stringify(v)); newVertex.id = state.nextVertexId++; newVertex.x += offsetX; newVertex.y += offsetY; state.vertices.push(newVertex); oldToNewIdMap.set(oldId, newVertex.id); newSelection.push(newVertex); }); clipboard.edges.forEach(e => { const newEdge = JSON.parse(JSON.stringify(e)); newEdge.id = state.nextEdgeId++; newEdge.sourceId = oldToNewIdMap.get(e.sourceId); newEdge.targetId = oldToNewIdMap.get(e.targetId); if (newEdge.sourceId !== undefined && newEdge.targetId !== undefined) { if (!e.controlPoint.isDefault) { newEdge.controlPoint.x += offsetX; newEdge.controlPoint.y += offsetY; } state.edges.push(newEdge); newSelection.push(newEdge); } }); state.selectedElements = newSelection; updatePropertiesPanel(); saveState(); render(); }
+
+            function getLabelForIndex(index) {
+                if (state.autoLabelType === 'numeric') return (index + 1).toString();
+                if (state.autoLabelType === 'alpha') {
+                    const letters = 'abcdefghijklmnopqrstuvwxyz';
+                    return letters[index % letters.length] + (index >= letters.length ? Math.floor(index / letters.length) : '');
+                }
+                return '';
+            }
+
+            function generatePresetGraph(shape, count) {
+                const parsedCount = parseInt(count, 10);
+                if (Number.isNaN(parsedCount) || parsedCount < 2) {
+                    showToast('Enter a valid number of vertices (at least 2).');
+                    return;
+                }
+
+                const minRequired = { clique: 3, cycle: 3, path: 2 }[shape] || 2;
+                if (parsedCount < minRequired) {
+                    showToast(`A ${shape} needs at least ${minRequired} vertices.`);
+                    return;
+                }
+
+                const { width, height } = svg.getBoundingClientRect();
+                const viewWidth = width / state.zoom;
+                const viewHeight = height / state.zoom;
+                const centerX = state.pan.x + viewWidth / 2;
+                const centerY = state.pan.y + viewHeight / 2;
+                const radius = Math.min(viewWidth, viewHeight) * 0.32;
+
+                const vertices = [];
+                for (let i = 0; i < parsedCount; i++) {
+                    let x, y;
+                    if (shape === 'path') {
+                        const spacing = (viewWidth * 0.7) / Math.max(1, parsedCount - 1);
+                        x = centerX - (viewWidth * 0.35) + i * spacing;
+                        y = centerY;
+                    } else {
+                        const angle = (2 * Math.PI * i) / parsedCount;
+                        x = centerX + radius * Math.cos(angle);
+                        y = centerY + radius * Math.sin(angle);
+                    }
+
+                    vertices.push({
+                        id: i,
+                        x,
+                        y,
+                        label: getLabelForIndex(i),
+                        radius: 10,
+                        fillType: 'solid',
+                        fillColor: '#628dc6',
+                        borderWidth: 1.5,
+                        borderColor: '#6b7280',
+                        type: 'vertex'
+                    });
+                }
+
+                const edges = [];
+                if (shape === 'clique') {
+                    for (let i = 0; i < parsedCount; i++) {
+                        for (let j = i + 1; j < parsedCount; j++) {
+                            edges.push({ id: edges.length, sourceId: i, targetId: j, type: 'edge', edgeType: 'undirected', lineStyle: 'solid', controlPoint: { x: 0, y: 0, isDefault: true } });
+                        }
+                    }
+                } else if (shape === 'cycle') {
+                    for (let i = 0; i < parsedCount; i++) {
+                        const target = (i + 1) % parsedCount;
+                        edges.push({ id: edges.length, sourceId: i, targetId: target, type: 'edge', edgeType: 'undirected', lineStyle: 'solid', controlPoint: { x: 0, y: 0, isDefault: true } });
+                    }
+                } else if (shape === 'path') {
+                    for (let i = 0; i < parsedCount - 1; i++) {
+                        edges.push({ id: edges.length, sourceId: i, targetId: i + 1, type: 'edge', edgeType: 'undirected', lineStyle: 'solid', controlPoint: { x: 0, y: 0, isDefault: true } });
+                    }
+                }
+
+                state.vertices = vertices;
+                state.edges = edges;
+                state.nextVertexId = vertices.length;
+                state.nextEdgeId = edges.length;
+                state.selectedElements = [];
+                state.edgeStartVertex = null;
+                saveState();
+                render();
+                showToast(`Generated a ${shape} with ${parsedCount} vertices.`);
+            }
             function setMode(newMode, fromLoad = false) {
                 if (!fromLoad && state.mode === newMode) newMode = 'select';
                 state.mode = newMode;
@@ -346,6 +472,16 @@
                 svg.style.cursor = { 'pan': 'grab', 'addVertex': 'crosshair', 'addEdge': 'pointer', 'delete': 'pointer' }[state.mode] || 'default';
                 if (activeModeLabel) activeModeLabel.textContent = state.mode.charAt(0).toUpperCase() + state.mode.slice(1);
                 state.edgeStartVertex = null;
+                if (!fromLoad) {
+                    const hints = {
+                        select: 'Select mode: click items or drag to highlight multiple elements.',
+                        addVertex: 'Add Vertex mode: click on the canvas to place a vertex.',
+                        addEdge: 'Add Edge mode: click a start vertex, then the target vertex.',
+                        pan: 'Pan mode: drag the background to move the canvas.',
+                        delete: 'Delete mode: click elements to remove them.'
+                    };
+                    if (hints[state.mode]) showToast(hints[state.mode]);
+                }
                 render();
             }
             function selectElement(element, isMultiSelect = false) { if (isMultiSelect) { const index = state.selectedElements.findIndex(el => el.id === element.id && el.type === element.type); if (index > -1) state.selectedElements.splice(index, 1); else state.selectedElements.push(element); } else { state.selectedElements = element ? [element] : []; } updatePropertiesPanel(); updateToolbarButtons(); }
@@ -355,6 +491,30 @@
                 return edge.controlPoint.isDefault
                     ? { x: (source.x + target.x) / 2, y: (source.y + target.y) / 2 }
                     : edge.controlPoint;
+            }
+
+            function getBorderPoint(from, to, vertex) {
+                let dx = to.x - from.x;
+                let dy = to.y - from.y;
+                const len = Math.sqrt(dx * dx + dy * dy);
+                if (len === 0) return to;
+                const offset = parseFloat(vertex.radius) + (parseFloat(vertex.borderWidth) / 2);
+                return {
+                    x: to.x - (dx / len) * offset,
+                    y: to.y - (dy / len) * offset
+                };
+            }
+
+            function showToast(message, duration = 2500) {
+                const toast = document.createElement('div');
+                toast.className = 'toast';
+                toast.textContent = message;
+                toastContainer.appendChild(toast);
+                setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateY(-4px)';
+                    setTimeout(() => toast.remove(), 200);
+                }, duration);
             }
 
             function calculateBendDegree(edge) {
@@ -470,7 +630,19 @@
                     handle.setAttribute('cx', controlPoint.x);
                     handle.setAttribute('cy', controlPoint.y);
                     handle.setAttribute('r', '6');
-                    handle.addEventListener('mousedown', (e) => { e.stopPropagation(); state.draggedElement = { type: 'handle', edgeId: edge.id }; });
+                    handle.addEventListener('mousedown', (e) => {
+                        e.stopPropagation();
+                        const edgeInState = state.edges.find(ed => ed.id === edge.id);
+                        if (edgeInState) {
+                            const src = state.vertices.find(v => v.id === edgeInState.sourceId);
+                            const tgt = state.vertices.find(v => v.id === edgeInState.targetId);
+                            if (src && tgt && edgeInState.controlPoint.isDefault) {
+                                const cp = getEffectiveControlPoint(edgeInState, src, tgt);
+                                edgeInState.controlPoint = { ...cp, isDefault: false };
+                            }
+                        }
+                        state.draggedElement = { type: 'handle', edgeId: edge.id };
+                    });
 
                     g.appendChild(handle);
                     if (isSelected(edge) || (state.draggedElement && state.draggedElement.type === 'handle' && state.draggedElement.edgeId === edge.id)) {
@@ -533,18 +705,42 @@
             function generateTikZ() { const doCenter = centerCheck.checked, doCaption = captionCheck.checked, captionText = captionInput.value; const hexToName = {}; let colorIndex = 0; state.vertices.forEach(v => { if (!hexToName[v.borderColor]) hexToName[v.borderColor] = `mycolor${colorIndex++}`; if (v.fillType === 'solid' && !hexToName[v.fillColor]) hexToName[v.fillColor] = `mycolor${colorIndex++}`; }); let code = ''; for (const hex in hexToName) code += `\\definecolor{${hexToName[hex]}}{HTML}{${hex.substring(1)}}\n`; if (doCenter || doCaption) code += `\\begin{figure}[h!]\n${doCenter ? '  \\centering\n' : ''}`; code += '  \\begin{tikzpicture}[every node/.style={draw, circle}]\n'; const canvasHeight = svg.getBoundingClientRect().height; const tikzBorder = { 1: 'thin', 1.5: '', 2.5: 'thick' }; const sizeMap = { 6: '0.4cm', 10: '0.6cm', 14: '0.8cm' }; code += '    % Vertices\n'; state.vertices.forEach(v => { const x = (v.x / TIKZ_SCALE_FACTOR).toFixed(2), y = ((canvasHeight - v.y) / TIKZ_SCALE_FACTOR).toFixed(2); let styles = [`draw=${hexToName[v.borderColor]}`]; if (v.fillType === 'solid') styles.push(`fill=${hexToName[v.fillColor]}`); else styles.push('fill=none'); styles.push(`minimum size=${sizeMap[v.radius]}`); if (tikzBorder[v.borderWidth]) styles.push(tikzBorder[v.borderWidth]); code += `    \\node[${styles.join(', ')}] (v${v.id}) at (${x}, ${y}) {${v.label}};\n`; }); code += '\n    % Edges\n'; state.edges.forEach(e => { let styles = []; if (e.edgeType === 'directed') styles.push('-{stealth}'); if (e.lineStyle === 'dashed') styles.push('dashed'); if (e.lineStyle === 'dotted') styles.push('dotted'); const styleString = styles.length > 0 ? `[${styles.join(', ')}]` : ''; const source = state.vertices.find(v => v.id === e.sourceId), target = state.vertices.find(v => v.id === e.targetId); if (!source || !target) return; const isBent = Math.sqrt((e.controlPoint.x - (source.x + target.x)/2)**2 + (e.controlPoint.y - (source.y + target.y)/2)**2) > 2; if (isBent) { const cx = (e.controlPoint.x / TIKZ_SCALE_FACTOR).toFixed(2), cy = ((canvasHeight - e.controlPoint.y) / TIKZ_SCALE_FACTOR).toFixed(2); code += `    \\draw${styleString} (v${e.sourceId}) .. controls (${cx},${cy}) .. (v${e.targetId});\n`; } else code += `    \\draw${styleString} (v${e.sourceId}) -- (v${e.targetId});\n`; }); code += '  \\end{tikzpicture}'; if (doCenter || doCaption) { if (doCaption && captionText) code += `\n  \\caption{${captionText}}\n`; code += '\\end{figure}'; } tikzCodeArea.value = code; }
 
             function getBoundingBox(elements) {
-                const vertices = elements.filter(el => el.type === 'vertex');
-                if (vertices.length === 0) return null;
-
                 let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                let hasElement = false;
+
+                const vertices = elements.filter(el => el.type === 'vertex');
                 vertices.forEach(v => {
-                    const radius = parseFloat(v.radius);
+                    const radius = parseFloat(v.radius) + (parseFloat(v.borderWidth || 0) / 2);
                     minX = Math.min(minX, v.x - radius);
                     minY = Math.min(minY, v.y - radius);
                     maxX = Math.max(maxX, v.x + radius);
                     maxY = Math.max(maxY, v.y + radius);
+                    hasElement = true;
                 });
-                return { minX, minY, maxX, maxY };
+
+                const edges = elements.filter(el => el.type === 'edge');
+                edges.forEach(edge => {
+                    const source = state.vertices.find(v => v.id === edge.sourceId);
+                    const target = state.vertices.find(v => v.id === edge.targetId);
+                    if (!source || !target) return;
+
+                    const controlPoint = getEffectiveControlPoint(edge, source, target);
+                    const padding = Math.max(
+                        parseFloat(source.radius) + parseFloat(source.borderWidth || 0),
+                        parseFloat(target.radius) + parseFloat(target.borderWidth || 0),
+                        6
+                    );
+
+                    [source, target, controlPoint].forEach(pt => {
+                        minX = Math.min(minX, pt.x - padding);
+                        minY = Math.min(minY, pt.y - padding);
+                        maxX = Math.max(maxX, pt.x + padding);
+                        maxY = Math.max(maxY, pt.y + padding);
+                    });
+                    hasElement = true;
+                });
+
+                return hasElement ? { minX, minY, maxX, maxY } : null;
             }
 
             // --- START: FIXED DOWNLOAD FUNCTIONS ---
@@ -580,14 +776,6 @@
 
                     const controlPoint = edge.controlPoint.isDefault ? { x: (source.x + target.x) / 2, y: (source.y + target.y) / 2 } : edge.controlPoint;
                     
-                    const getBorderPoint = (from, to, vertex) => {
-                        let dx = to.x - from.x; let dy = to.y - from.y;
-                        const len = Math.sqrt(dx * dx + dy * dy);
-                        if (len === 0) return to;
-                        const offset = parseFloat(vertex.radius) + (parseFloat(vertex.borderWidth) / 2);
-                        return { x: to.x - (dx / len) * offset, y: to.y - (dy / len) * offset };
-                    };
-
                     const finalSource = getBorderPoint(controlPoint, source, source);
                     const finalTarget = getBorderPoint(controlPoint, target, target);
                     const pathD = `M ${finalSource.x} ${finalSource.y} Q ${controlPoint.x} ${controlPoint.y} ${finalTarget.x} ${finalTarget.y}`;
@@ -624,30 +812,25 @@
 
             function downloadImage(isPng, selectedOnly) {
                 let elementsToExport;
-                let verticesToConsider;
 
                 if (selectedOnly) {
                     const selectedVertices = state.selectedElements.filter(el => el.type === 'vertex');
                     const selectedVertexIds = new Set(selectedVertices.map(v => v.id));
-                    
-                    // Find all edges in the main state that connect two of the selected vertices
-                    const connectingEdges = state.edges.filter(edge => 
+
+                    const connectingEdges = state.edges.filter(edge =>
                         selectedVertexIds.has(edge.sourceId) && selectedVertexIds.has(edge.targetId)
                     );
 
                     elementsToExport = [...selectedVertices, ...connectingEdges];
-                    verticesToConsider = selectedVertices;
+                    if (elementsToExport.length === 0) {
+                        showToast('Select at least one vertex to export the selection.');
+                        return;
+                    }
                 } else {
                     elementsToExport = [...state.vertices, ...state.edges];
-                    verticesToConsider = state.vertices;
                 }
 
-                if (selectedOnly && verticesToConsider.length === 0) {
-                    console.warn("Cannot export an empty or edge-only selection.");
-                    return;
-                }
-
-                const bbox = verticesToConsider.length > 0 ? getBoundingBox(verticesToConsider) : { minX: 0, minY: 0, maxX: 100, maxY: 100 };
+                const bbox = getBoundingBox(elementsToExport) || { minX: 0, minY: 0, maxX: 100, maxY: 100 };
                 const padding = 20;
                 const contentWidth = (bbox.maxX - bbox.minX) + padding * 2;
                 const contentHeight = (bbox.maxY - bbox.minY) + padding * 2;
@@ -761,6 +944,7 @@
             centerCheck.addEventListener('change', generateTikZ);
             captionCheck.addEventListener('change', () => { captionInput.disabled = !captionCheck.checked; generateTikZ(); });
             captionInput.addEventListener('input', generateTikZ);
+            generatePresetBtn.addEventListener('click', () => generatePresetGraph(presetShapeSelect.value, presetCountInput.value));
             
             downloadSvgBtn.addEventListener('click', () => downloadImage(false, false));
             downloadPngBtn.addEventListener('click', () => downloadImage(true, false));
