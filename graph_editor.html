@@ -814,7 +814,7 @@
                     code += `\\definecolor{${hexToName[hex]}}{HTML}{${hex.substring(1)}}\n`;
                 }
 
-                code += '\\resizebox{\\columnwidth}{!}{%\n';
+                code += '\\resizebox{\\textwidth}{!}{%\n';
                 code += '  \\begin{tikzpicture}[every node/.style={draw, circle}]\n';
 
                 const canvasHeight = svg.getBoundingClientRect().height;
