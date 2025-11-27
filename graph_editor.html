@@ -193,7 +193,8 @@
                     <button id="add-vertex-btn" class="btn btn-secondary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="6" /></svg>Add Vertex</button>
                     <button id="add-edge-btn" class="btn btn-secondary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="12" r="4" /><circle cx="17" cy="12" r="4" /><line x1="11" y1="12" x2="13" y2="12" /></svg>Add Edge</button>
                     <button id="delete-mode-btn" class="btn btn-secondary"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-eraser" viewBox="0 0 16 16"><path d="M8.086 2.207a1.5 1.5 0 0 1 2.121 0l3.586 3.586a1.5 1.5 0 0 1 0 2.121l-5.5 5.5a1.5 1.5 0 0 1-1.06.439H3.914a1.5 1.5 0 0 1-1.06-.439l-1.5-1.5a1.5 1.5 0 0 1 0-2.122l6.732-6.732Zm-5.379 7.44a.5.5 0 0 0-.146.353.5.5 0 0 0 .146.354l1.5 1.5a.5.5 0 0 0 .353.146h3.318a.5.5 0 0 0 .353-.146l3.562-3.562-2.914-2.914-6.172 6.172Z"/></svg>Delete</button>
-                    <button id="show-instructions-btn" class="btn btn-secondary">Show Tips</button>
+                    <button id="copy-tikz-btn" class="btn btn-secondary">Copy TikZ Code</button>
+                    <button id="show-instructions-btn" class="btn btn-secondary">Instructions</button>
                 </div>
 
                 <div class="flex flex-wrap items-center gap-2">
@@ -287,15 +288,6 @@
             </div>
         </div>
 
-            <div class="panel-card bg-white border border-slate-200 lg:w-[420px]">
-                <div class="p-3 flex justify-between items-center border-b border-gray-200 bg-white/60"><h3 class="text-md font-semibold text-gray-800 px-2">Generated TikZ Code</h3><button id="copy-button" class="btn btn-primary">Copy Code</button></div>
-                <textarea id="tikz-code" readonly class="flex-grow w-full p-4 box-border border-none font-mono text-sm resize-none bg-white text-gray-800 focus:outline-none" style="min-height: 8rem;"></textarea>
-                <div class="bg-white border-t border-gray-200 p-3 flex items-center gap-4 text-sm flex-wrap">
-                    <div class="flex items-center gap-2"><input type="checkbox" id="center-drawing-check" class="form-checkbox"><label for="center-drawing-check">Center Drawing</label></div>
-                    <div class="flex items-center gap-2"><input type="checkbox" id="add-caption-check" class="form-checkbox"><label for="add-caption-check" id="add-caption-label">Add Caption</label></div>
-                    <input type="text" id="caption-input" placeholder="Enter caption text..." class="form-input text-sm py-1 flex-1 min-w-[10rem]" disabled>
-                </div>
-            </div>
         </div>
     </div>
 
@@ -308,7 +300,6 @@
             const multiSelectInfo = document.getElementById('multi-select-info');
             const vertexPropsPanel = document.getElementById('vertex-props');
             const edgePropsPanel = document.getElementById('edge-props');
-            const tikzCodeArea = document.getElementById('tikz-code');
             const NS = 'http://www.w3.org/2000/svg';
 
             let state = { vertices: [], edges: [], nextVertexId: 0, nextEdgeId: 0, selectedElements: [], mode: 'select', edgeStartVertex: null, autoLabelType: 'numeric', draggedElement: null, pan: {x: 0, y: 0}, zoom: 1 };
@@ -336,11 +327,8 @@
             const generatePresetBtn = document.getElementById('generate-preset-btn');
             const instructionsModal = document.getElementById('instructions-modal');
             const closeInstructionsBtn = document.getElementById('close-instructions-btn');
-            const copyBtn = document.getElementById('copy-button');
+            const copyTikzBtn = document.getElementById('copy-tikz-btn');
             const resetBendBtn = document.getElementById('reset-bend-btn');
-            const centerCheck = document.getElementById('center-drawing-check');
-            const captionCheck = document.getElementById('add-caption-check');
-            const captionInput = document.getElementById('caption-input');
             const applyToAllVerticesBtn = document.getElementById('apply-to-all-vertices-btn');
             const applyToAllEdgesBtn = document.getElementById('apply-to-all-edges-btn');
             const downloadSvgBtn = document.getElementById('download-svg-btn');
@@ -809,10 +797,9 @@
                 });
 
                 if (marqueeRect) { svg.appendChild(marqueeRect); }
-                generateTikZ();
             }
 
-            function generateTikZ() { const doCenter = centerCheck.checked, doCaption = captionCheck.checked, captionText = captionInput.value; const hexToName = {}; let colorIndex = 0; state.vertices.forEach(v => { if (!hexToName[v.borderColor]) hexToName[v.borderColor] = `mycolor${colorIndex++}`; if (v.fillType === 'solid' && !hexToName[v.fillColor]) hexToName[v.fillColor] = `mycolor${colorIndex++}`; }); let code = ''; for (const hex in hexToName) code += `\\definecolor{${hexToName[hex]}}{HTML}{${hex.substring(1)}}\n`; if (doCenter || doCaption) code += `\\begin{figure}[h!]\n${doCenter ? '  \\centering\n' : ''}`; code += '  \\begin{tikzpicture}[every node/.style={draw, circle}]\n'; const canvasHeight = svg.getBoundingClientRect().height; const tikzBorder = { 1: 'thin', 1.5: '', 2.5: 'thick' }; const sizeMap = { 6: '0.4cm', 10: '0.6cm', 14: '0.8cm' }; code += '    % Vertices\n'; state.vertices.forEach(v => { const x = (v.x / TIKZ_SCALE_FACTOR).toFixed(2), y = ((canvasHeight - v.y) / TIKZ_SCALE_FACTOR).toFixed(2); let styles = [`draw=${hexToName[v.borderColor]}`]; if (v.fillType === 'solid') styles.push(`fill=${hexToName[v.fillColor]}`); else styles.push('fill=none'); styles.push(`minimum size=${sizeMap[v.radius]}`); if (tikzBorder[v.borderWidth]) styles.push(tikzBorder[v.borderWidth]); code += `    \\node[${styles.join(', ')}] (v${v.id}) at (${x}, ${y}) {${v.label}};\n`; }); code += '\n    % Edges\n'; state.edges.forEach(e => { let styles = []; if (e.edgeType === 'directed') styles.push('-{stealth}'); if (e.lineStyle === 'dashed') styles.push('dashed'); if (e.lineStyle === 'dotted') styles.push('dotted'); const styleString = styles.length > 0 ? `[${styles.join(', ')}]` : ''; const source = state.vertices.find(v => v.id === e.sourceId), target = state.vertices.find(v => v.id === e.targetId); if (!source || !target) return; const isBent = Math.sqrt((e.controlPoint.x - (source.x + target.x)/2)**2 + (e.controlPoint.y - (source.y + target.y)/2)**2) > 2; if (isBent) { const cx = (e.controlPoint.x / TIKZ_SCALE_FACTOR).toFixed(2), cy = ((canvasHeight - e.controlPoint.y) / TIKZ_SCALE_FACTOR).toFixed(2); code += `    \\draw${styleString} (v${e.sourceId}) .. controls (${cx},${cy}) .. (v${e.targetId});\n`; } else code += `    \\draw${styleString} (v${e.sourceId}) -- (v${e.targetId});\n`; }); code += '  \\end{tikzpicture}'; if (doCenter || doCaption) { if (doCaption && captionText) code += `\n  \\caption{${captionText}}\n`; code += '\\end{figure}'; } tikzCodeArea.value = code; }
+            function generateTikZ() { const hexToName = {}; let colorIndex = 0; state.vertices.forEach(v => { if (!hexToName[v.borderColor]) hexToName[v.borderColor] = `mycolor${colorIndex++}`; if (v.fillType === 'solid' && !hexToName[v.fillColor]) hexToName[v.fillColor] = `mycolor${colorIndex++}`; }); let code = ''; for (const hex in hexToName) code += `\\definecolor{${hexToName[hex]}}{HTML}{${hex.substring(1)}}\n`; code += '  \\begin{tikzpicture}[every node/.style={draw, circle}]\n'; const canvasHeight = svg.getBoundingClientRect().height; const tikzBorder = { 1: 'thin', 1.5: '', 2.5: 'thick' }; const sizeMap = { 6: '0.4cm', 10: '0.6cm', 14: '0.8cm' }; code += '    % Vertices\n'; state.vertices.forEach(v => { const x = (v.x / TIKZ_SCALE_FACTOR).toFixed(2), y = ((canvasHeight - v.y) / TIKZ_SCALE_FACTOR).toFixed(2); let styles = [`draw=${hexToName[v.borderColor]}`]; if (v.fillType === 'solid') styles.push(`fill=${hexToName[v.fillColor]}`); else styles.push('fill=none'); styles.push(`minimum size=${sizeMap[v.radius]}`); if (tikzBorder[v.borderWidth]) styles.push(tikzBorder[v.borderWidth]); code += `    \\node[${styles.join(', ')}] (v${v.id}) at (${x}, ${y}) {${v.label}};\n`; }); code += '\n    % Edges\n'; state.edges.forEach(e => { let styles = []; if (e.edgeType === 'directed') styles.push('-{stealth}'); if (e.lineStyle === 'dashed') styles.push('dashed'); if (e.lineStyle === 'dotted') styles.push('dotted'); const styleString = styles.length > 0 ? `[${styles.join(', ')}]` : ''; const source = state.vertices.find(v => v.id === e.sourceId), target = state.vertices.find(v => v.id === e.targetId); if (!source || !target) return; const isBent = Math.sqrt((e.controlPoint.x - (source.x + target.x)/2)**2 + (e.controlPoint.y - (source.y + target.y)/2)**2) > 2; if (isBent) { const cx = (e.controlPoint.x / TIKZ_SCALE_FACTOR).toFixed(2), cy = ((canvasHeight - e.controlPoint.y) / TIKZ_SCALE_FACTOR).toFixed(2); code += `    \\draw${styleString} (v${e.sourceId}) .. controls (${cx},${cy}) .. (v${e.targetId});\n`; } else code += `    \\draw${styleString} (v${e.sourceId}) -- (v${e.targetId});\n`; }); code += '  \\end{tikzpicture}'; return code; }
 
             function getVerticesBoundingBox(vertices) {
                 if (!vertices || vertices.length === 0) return null;
@@ -1052,13 +1039,24 @@
                     hideInstructions();
                 }
             });
-            copyBtn.addEventListener('click', () => { tikzCodeArea.select(); document.execCommand('copy'); copyBtn.textContent = 'Copied!'; setTimeout(() => { copyBtn.textContent = 'Copy Code'; }, 2000); });
+            copyTikzBtn.addEventListener('click', async () => {
+                const tikzCode = generateTikZ();
+                try {
+                    await navigator.clipboard.writeText(tikzCode);
+                    showToast('TikZ code copied to clipboard');
+                } catch (err) {
+                    const fallback = document.createElement('textarea');
+                    fallback.value = tikzCode;
+                    document.body.appendChild(fallback);
+                    fallback.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(fallback);
+                    showToast('TikZ code copied');
+                }
+            });
             resetBendBtn.addEventListener('click', () => { if (state.selectedElements.length === 1 && state.selectedElements[0].type === 'edge') { state.selectedElements[0].controlPoint.isDefault = true; updatePropertiesPanel(); saveState(); render(); } });
             applyToAllVerticesBtn.addEventListener('click', () => { if (state.selectedElements.length === 1 && state.selectedElements[0].type === 'vertex') { const style = state.selectedElements[0]; state.vertices.forEach(v => { v.radius = style.radius; v.fillType = style.fillType; v.fillColor = style.fillColor; v.borderWidth = style.borderWidth; v.borderColor = style.borderColor; }); saveState(); render(); } });
             applyToAllEdgesBtn.addEventListener('click', () => { if (state.selectedElements.length === 1 && state.selectedElements[0].type === 'edge') { const style = state.selectedElements[0]; state.edges.forEach(e => { e.edgeType = style.edgeType; e.lineStyle = style.lineStyle; }); saveState(); render(); } });
-            centerCheck.addEventListener('change', generateTikZ);
-            captionCheck.addEventListener('change', () => { captionInput.disabled = !captionCheck.checked; generateTikZ(); });
-            captionInput.addEventListener('input', generateTikZ);
             generatePresetBtn.addEventListener('click', () => generatePresetGraph(presetShapeSelect.value, presetCountInput.value));
 
             downloadMenuBtn.addEventListener('click', (e) => {
